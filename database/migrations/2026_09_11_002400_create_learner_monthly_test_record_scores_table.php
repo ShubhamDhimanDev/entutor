@@ -13,12 +13,14 @@ return new class extends Migration
     {
         Schema::create('learner_monthly_test_record_scores', function (Blueprint $table) {
             $table->id();
-            $table->foreignId('learner_monthly_test_record_id')->constrained('learner_monthly_test_records')->cascadeOnDelete();
+            $table->foreignId('learner_monthly_test_record_id')
+                ->constrained('learner_monthly_test_records', 'id', 'lmtr_scores_record_id_foreign')
+                ->cascadeOnDelete();
             $table->string('skill');
             $table->unsignedTinyInteger('score');
             $table->timestamps();
 
-            $table->unique(['learner_monthly_test_record_id', 'skill']);
+            $table->unique(['learner_monthly_test_record_id', 'skill'], 'lmtr_scores_record_id_skill_unique');
         });
     }
 
