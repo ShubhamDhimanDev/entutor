@@ -3,6 +3,7 @@ import WeeklyMilestoneController from '@/actions/App/Http/Controllers/WeeklyMile
 import WeeklyRatingController from '@/actions/App/Http/Controllers/WeeklyRatingController';
 import { PageHeader } from '@/components/page-header';
 import { WeekProgressCard } from '@/components/progress/week-progress-card';
+import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import {
     Card,
@@ -13,7 +14,9 @@ import {
 } from '@/components/ui/card';
 import { show as showMonth } from '@/routes/months';
 import { show as showMonthlyTest } from '@/routes/months/test';
+import { show as showTense } from '@/routes/tenses';
 import type { WeekProgress } from '@/types';
+import type { TenseRef } from '@/types/library';
 
 type Month = {
     id: number;
@@ -31,10 +34,12 @@ export default function MonthShow({
     month,
     weeks,
     canAct,
+    tenses,
 }: {
     month: Month;
     weeks: WeekProgress[];
     canAct: boolean;
+    tenses: TenseRef[];
 }) {
     return (
         <>
@@ -105,6 +110,34 @@ export default function MonthShow({
                             <p className="text-muted-foreground text-sm">
                                 {month.vocabulary_target}
                             </p>
+                        </div>
+                        <div className="sm:col-span-2">
+                            <h3 className="mb-1 text-sm font-medium">
+                                This month's grammar focus
+                            </h3>
+                            {tenses.length === 0 ? (
+                                <p className="text-muted-foreground text-sm">
+                                    No grammar tasks scheduled this month.
+                                </p>
+                            ) : (
+                                <div className="flex flex-wrap gap-2">
+                                    {tenses.map((tense) => (
+                                        <Badge
+                                            key={tense.id}
+                                            asChild
+                                            variant="secondary"
+                                        >
+                                            <Link
+                                                href={showTense({
+                                                    tense: tense.key,
+                                                })}
+                                            >
+                                                {tense.name}
+                                            </Link>
+                                        </Badge>
+                                    ))}
+                                </div>
+                            )}
                         </div>
                     </CardContent>
                 </Card>

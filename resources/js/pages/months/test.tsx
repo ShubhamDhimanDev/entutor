@@ -27,6 +27,7 @@ const SKILL_LABELS: Record<SkillArea, string> = {
     listening: 'Listening',
     speaking: 'Speaking',
     writing: 'Writing',
+    grammar: 'Grammar',
 };
 
 export default function MonthlyTestShow({

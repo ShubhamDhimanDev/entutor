@@ -3,20 +3,23 @@
 namespace Database\Seeders;
 
 use App\Enums\SkillArea;
+use App\Enums\TenseKey;
 use App\Models\Day;
 use App\Models\DayTask;
 use App\Models\DayTaskVocabularyItem;
 use App\Models\Month;
+use App\Models\Tense;
 use App\Models\Week;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
 use RuntimeException;
 
 class Month2DaySeeder extends Seeder
 {
     /**
-     * Proportional minute split across the 5 daily tasks (out of 56 parts):
-     * read/vocabulary/listen/speak/write ~= 8/12/10/16/10. Speaking (the
-     * main practice block) absorbs any rounding remainder.
+     * Proportional minute split across the 6 daily tasks (out of 64 parts):
+     * read/vocabulary/listen/speak/write/grammar ~= 8/12/10/16/10/8. Speaking
+     * (the main practice block) absorbs any rounding remainder.
      *
      * @var array<string, int>
      */
@@ -26,6 +29,7 @@ class Month2DaySeeder extends Seeder
         'listening' => 10,
         'speaking' => 16,
         'writing' => 10,
+        'grammar' => 8,
     ];
 
     /**
@@ -49,6 +53,9 @@ class Month2DaySeeder extends Seeder
         // local day 1-30 within this month must be offset onto the global
         // range that MonthSeeder already assigned to Month 2's weeks.
         $offset = ($month->month_number - 1) * 30;
+
+        /** @var Collection<string, int> $tenseIds */
+        $tenseIds = Tense::query()->pluck('id', 'key');
 
         foreach ($this->days() as $localDayNumber => $data) {
             $dayNumber = $offset + $localDayNumber;
@@ -114,13 +121,33 @@ class Month2DaySeeder extends Seeder
                 'content' => $data['write'],
                 'estimated_minutes' => $minutes['writing'],
             ]);
+
+            if (! isset($data['tense'])) {
+                throw new RuntimeException("Day {$dayNumber} missing 'tense' key.");
+            }
+
+            if (! isset($data['grammar'])) {
+                throw new RuntimeException("Day {$dayNumber} missing 'grammar' content.");
+            }
+
+            $tenseId = $tenseIds[$data['tense']->value] ?? throw new RuntimeException(
+                "Day {$dayNumber}: no Tense found for key '{$data['tense']->value}'."
+            );
+
+            DayTask::create([
+                'day_id' => $day->id,
+                'type' => SkillArea::Grammar,
+                'tense_id' => $tenseId,
+                'content' => $data['grammar'],
+                'estimated_minutes' => $minutes['grammar'],
+            ]);
         }
 
         $this->assertMonth2Integrity($month);
     }
 
     /**
-     * Assertion: exactly 30 Day rows and 150 DayTask rows (30 x 5) exist for
+     * Assertion: exactly 30 Day rows and 180 DayTask rows (30 x 6) exist for
      * Month 2, and every day has exactly one task per SkillArea.
      */
     private function assertMonth2Integrity(Month $month): void
@@ -132,8 +159,8 @@ class Month2DaySeeder extends Seeder
 
         $dayIds = Day::where('month_id', $month->id)->pluck('id');
         $dayTaskCount = DayTask::whereIn('day_id', $dayIds)->count();
-        if ($dayTaskCount !== 150) {
-            throw new RuntimeException("Expected 150 DayTask rows for Month 2, found {$dayTaskCount}.");
+        if ($dayTaskCount !== 180) {
+            throw new RuntimeException("Expected 180 DayTask rows for Month 2, found {$dayTaskCount}.");
         }
 
         $expectedTypes = collect(SkillArea::cases())->map(fn (SkillArea $type): string => $type->value)
@@ -178,6 +205,13 @@ class Month2DaySeeder extends Seeder
      * Common Verbs 2, Connectors & Small Words), with Hindi glosses matching
      * WordBankSeeder exactly.
      *
+     * Grammar focus: local days 1-14 (weeks 1-2) teach Past Simple; local
+     * days 15-30 (weeks 3-4) teach Future Simple, matching this month's
+     * "Past & Future" week-4 theme. Terminology and structure formulas match
+     * TenseSeeder exactly. Progression within each block: introduce the
+     * affirmative form, then negative/question forms, then signal words and
+     * usage rules, then common-mistake correction and freer/review practice.
+     *
      * @return array<int, array<string, mixed>>
      */
     private function days(): array
@@ -203,6 +237,11 @@ class Month2DaySeeder extends Seeder
                     ['small', 'छोटा (chhota)'],
                     ['new', 'नया (naya)'],
                 ],
+                'grammar' => "Today's grammar focus is Past Simple: Subject + verb (past form / -ed), used "
+                    ."for actions that are already finished. Practice with regular verbs: 'I walked to work. "
+                    ."I cooked breakfast. I called my mother.' Say 3 sentences about what you did before your "
+                    .'daily routine started this morning, using the -ed form.',
+                'tense' => TenseKey::PastSimple,
             ],
             2 => [
                 'title' => 'Old Habits, New Habits',
@@ -222,6 +261,11 @@ class Month2DaySeeder extends Seeder
                     ['easy', 'आसान (aasaan)'],
                     ['difficult', 'मुश्किल (mushkil)'],
                 ],
+                'grammar' => "Continue the Past Simple affirmative, now with irregular verbs that don't take "
+                    ."-ed: 'go' becomes 'went', 'have' becomes 'had', and 'be' becomes 'was/were'. Say 3 "
+                    ."sentences about your old routine using 'was', 'went', or 'had', such as 'My old routine "
+                    ."was slow' or 'I went to bed late'.",
+                'tense' => TenseKey::PastSimple,
             ],
             3 => [
                 'title' => 'Fast Mornings, Slow Evenings',
@@ -241,6 +285,10 @@ class Month2DaySeeder extends Seeder
                     ['dirty', 'गंदा (ganda)'],
                     ['expensive', 'महँगा (mehanga)'],
                 ],
+                'grammar' => "Practice 'was' and 'were', the Past Simple forms of 'be': use 'was' with "
+                    ."I/he/she/it and 'were' with you/we/they. Describe yesterday morning and yesterday "
+                    ."evening to yourself in 4 sentences, using 'was' or 'were' at least twice.",
+                'tense' => TenseKey::PastSimple,
             ],
             4 => [
                 'title' => 'Good Days and Bad Decisions',
@@ -262,6 +310,11 @@ class Month2DaySeeder extends Seeder
                     ['correct', 'सही (sahi)'],
                     ['wrong', 'गलत (galat)'],
                 ],
+                'grammar' => "Learn the Past Simple negative: Subject + did not/didn't + verb (base form) — "
+                    ."the main verb loses its -ed once 'didn't' is there. Compare: 'I made the correct "
+                    ."decision' with 'I didn't make the wrong decision.' Rewrite 2 of today's Writing-task "
+                    ."sentences in the negative, using 'didn't'.",
+                'tense' => TenseKey::PastSimple,
             ],
             5 => [
                 'title' => 'Energy Through the Day',
@@ -282,6 +335,10 @@ class Month2DaySeeder extends Seeder
                     ['light', 'हल्का (halka)'],
                     ['different', 'अलग (alag)'],
                 ],
+                'grammar' => "Keep practicing the Past Simple negative: Subject + didn't + verb (base form). "
+                    ."Say 3 negative sentences about yesterday, such as 'I didn't feel strong in the evening' "
+                    ."or 'I didn't sleep enough,' remembering the verb stays in its base form after 'didn't'.",
+                'tense' => TenseKey::PastSimple,
             ],
             6 => [
                 'title' => 'Putting Your Day in Order',
@@ -305,6 +362,11 @@ class Month2DaySeeder extends Seeder
                     ['finally', 'आख़िर में (aakhir mein)'],
                     ['while', 'जब (jab)'],
                 ],
+                'grammar' => 'Learn the Past Simple question form: Did + subject + verb (base form)? — '
+                    .'remember the main verb never takes -ed in a question. Ask your practice partner 3 '
+                    ."questions about their day yesterday, such as 'Did you wake up early?' or 'Did you finish "
+                    ."work on time?'",
+                'tense' => TenseKey::PastSimple,
             ],
             7 => [
                 'title' => 'Week 1 Review — Describe Your Daily Routine',
@@ -319,6 +381,10 @@ class Month2DaySeeder extends Seeder
                 'vocab_intro' => 'No new words this week — re-read all 32 Week 1 words aloud once, at normal '
                     .'speed, and notice which ones are now easy.',
                 'vocab' => [],
+                'grammar' => 'Week 1 grammar review — Past Simple in all three forms: affirmative (I '
+                    ."walked), negative (I didn't walk), and question (Did you walk?). Pick 3 verbs from this "
+                    ."week's vocabulary and make one sentence of each type for each verb.",
+                'tense' => TenseKey::PastSimple,
             ],
             8 => [
                 'title' => 'Asking About Prices',
@@ -337,6 +403,11 @@ class Month2DaySeeder extends Seeder
                     ['rupee', 'रुपया (rupaya)'],
                     ['discount', 'छूट (chhoot)'],
                 ],
+                'grammar' => "Past Simple often comes with a specific past-time signal word — 'yesterday', "
+                    ."'last week', 'two days ago' — that tells the listener exactly when. Say 2 sentences "
+                    .'about a purchase you made, each starting with a different signal word, like '
+                    ."'Yesterday, I bought a shirt.'",
+                'tense' => TenseKey::PastSimple,
             ],
             9 => [
                 'title' => 'Bargaining at the Market',
@@ -355,6 +426,11 @@ class Month2DaySeeder extends Seeder
                     ['cash', 'नकद (nakad)'],
                     ['shop', 'दुकान (dukaan)'],
                 ],
+                'grammar' => 'Use Past Simple whenever the exact time is known or implied, even without a '
+                    .'time word — a finished story about the past still needs Past Simple throughout. Tell '
+                    .'your practice partner about the last time you bargained for something, using at least 2 '
+                    ."past-time signal words such as 'last month' or 'ago'.",
+                'tense' => TenseKey::PastSimple,
             ],
             10 => [
                 'title' => 'At the Market',
@@ -373,6 +449,10 @@ class Month2DaySeeder extends Seeder
                     ['shopkeeper', 'दुकानदार (dukaandaar)'],
                     ['bag', 'थैला (thaila)'],
                 ],
+                'grammar' => "Review irregular past forms you'll need for market stories: 'buy' becomes "
+                    ."'bought', 'go' becomes 'went', 'see' becomes 'saw', and 'get' becomes 'got'. Say 4 "
+                    .'sentences about your last market visit using these irregular past forms.',
+                'tense' => TenseKey::PastSimple,
             ],
             11 => [
                 'title' => 'Choosing Size, Colour & Getting Change',
@@ -391,6 +471,11 @@ class Month2DaySeeder extends Seeder
                     ['receipt', 'रसीद (raseed)'],
                     ['change (money)', 'बाकी पैसे (baaki paise)'],
                 ],
+                'grammar' => 'When an action is fully finished — you chose it, paid, and left the shop — '
+                    ."Past Simple is the right choice, not Present Simple. Correct these aloud: 'I choose the "
+                    ."blue shirt' should be 'I chose the blue shirt'; 'the shopkeeper give me change' should "
+                    ."be 'the shopkeeper gave me change'.",
+                'tense' => TenseKey::PastSimple,
             ],
             12 => [
                 'title' => 'Shopping Online',
@@ -409,6 +494,10 @@ class Month2DaySeeder extends Seeder
                     ['online', 'ऑनलाइन (online)'],
                     ['delivery', 'डिलीवरी (delivery)'],
                 ],
+                'grammar' => 'Recap: Past Simple means a finished action, often with a time signal word like '
+                    ."'yesterday' or 'last week'. Write 2 sentences about something you ordered online in the "
+                    .'past, each with a different time signal word.',
+                'tense' => TenseKey::PastSimple,
             ],
             13 => [
                 'title' => 'Paying Smart: Card, Wallet & Budget',
@@ -428,6 +517,10 @@ class Month2DaySeeder extends Seeder
                     ['save (money)', 'बचाना (bachaana)'],
                     ['spend', 'खर्च करना (kharch karna)'],
                 ],
+                'grammar' => "Common mistake: learners often keep the verb in its past form after 'didn't', "
+                    ."saying 'I didn't paid' instead of 'I didn't pay'. Say the correct sentence aloud 3 "
+                    ."times, then make 1 more 'didn't' + base-verb sentence about your own spending.",
+                'tense' => TenseKey::PastSimple,
             ],
             14 => [
                 'title' => 'Week 2 Review — Shopping Roleplay Milestone',
@@ -441,6 +534,11 @@ class Month2DaySeeder extends Seeder
                 'vocab_intro' => 'No new words today — review all Week 2 words aloud and notice which ones '
                     .'feel easier now.',
                 'vocab' => [],
+                'grammar' => 'Week 2 grammar review — before your shopping roleplay, silently plan 2 Past '
+                    .'Simple sentences you can use afterwards to describe it, in affirmative, negative, or '
+                    ."question form (for example, 'I bargained for a discount' or 'Did the shopkeeper "
+                    ."agree?').",
+                'tense' => TenseKey::PastSimple,
             ],
             15 => [
                 'title' => 'Everyday Food & Drink Words',
@@ -462,6 +560,10 @@ class Month2DaySeeder extends Seeder
                     ['fruit', 'फल (phal)'],
                     ['sugar', 'चीनी (cheeni)'],
                 ],
+                'grammar' => 'New grammar focus: Future Simple — Subject + will + verb (base form), for '
+                    ."things that will happen. Practice: 'I will drink more water. I will try a new fruit.' "
+                    .'Say 3 sentences about food or drink you will have tomorrow, using \'will\'.',
+                'tense' => TenseKey::FutureSimple,
             ],
             16 => [
                 'title' => 'Meals of the Day',
@@ -483,6 +585,11 @@ class Month2DaySeeder extends Seeder
                     ['hungry', 'भूखा (bhookha)'],
                     ['thirsty', 'प्यासा (pyaasa)'],
                 ],
+                'grammar' => 'Keep practicing Future Simple affirmative: Subject + will + verb (base form) — '
+                    .'the verb after \'will\' never changes form, no matter the subject. Say 3 sentences '
+                    ."about your meals tomorrow, such as 'I will eat breakfast at 8' or 'We will have dinner "
+                    ."together'.",
+                'tense' => TenseKey::FutureSimple,
             ],
             17 => [
                 'title' => 'Ordering Food at a Restaurant',
@@ -506,6 +613,10 @@ class Month2DaySeeder extends Seeder
                     ['taste', 'स्वाद (svaad)'],
                     ['fresh', 'ताज़ा (taaza)'],
                 ],
+                'grammar' => "Use Future Simple for offers and promises at a restaurant, like 'I will order "
+                    ."the soup' or 'We will pay together.' Roleplay ordering with your practice partner, and "
+                    ."use 'will' in at least 3 of your lines.",
+                'tense' => TenseKey::FutureSimple,
             ],
             18 => [
                 'title' => 'Talking About Feelings',
@@ -527,6 +638,10 @@ class Month2DaySeeder extends Seeder
                     ['confident', 'आत्मविश्वासी (aatmvishvaasi)'],
                     ['worried', 'चिंतित (chintit)'],
                 ],
+                'grammar' => "Quick check: is the verb after 'will' always in its base form? Yes — never add "
+                    .'-s, -ed, or -ing. Say 3 sentences predicting how you will feel tomorrow, such as \'I '
+                    ."will feel confident' or 'I will feel tired'.",
+                'tense' => TenseKey::FutureSimple,
             ],
             19 => [
                 'title' => 'More Feelings & Small Talk',
@@ -549,6 +664,10 @@ class Month2DaySeeder extends Seeder
                     ['afraid', 'डरा हुआ (dara hua)'],
                     ['calm', 'शांत (shaant)'],
                 ],
+                'grammar' => 'Learn the Future Simple negative: Subject + will not/won\'t + verb (base '
+                    ."form). Say 3 negative sentences about next week, such as 'I won't feel nervous' or 'I "
+                    ."will not be late,' keeping the verb in base form.",
+                'tense' => TenseKey::FutureSimple,
             ],
             20 => [
                 'title' => 'Small Talk: Sharing How You Feel',
@@ -573,6 +692,10 @@ class Month2DaySeeder extends Seeder
                     ['motivated', 'प्रेरित (prerit)'],
                     ['pleased', 'प्रसन्न (prasann)'],
                 ],
+                'grammar' => "Practice 'won't' (will not) in small talk: tell your practice partner 2 things "
+                    ."you won't do this weekend and why, such as 'I won't work on Sunday because I need to "
+                    ."rest.'",
+                'tense' => TenseKey::FutureSimple,
             ],
             21 => [
                 'title' => 'Week 3 Review — Order Food & Make Small Talk Milestone',
@@ -586,6 +709,10 @@ class Month2DaySeeder extends Seeder
                     .'lines.',
                 'vocab_intro' => 'No new words today — review all Week 3 words aloud.',
                 'vocab' => [],
+                'grammar' => 'Week 3 grammar review — add the question form: Will + subject + verb (base '
+                    ."form)? Ask your practice partner 3 'Will you...?' questions about their plans for next "
+                    ."week, then answer using 'will' or 'won't'.",
+                'tense' => TenseKey::FutureSimple,
             ],
             22 => [
                 'title' => "Yesterday's Actions: Simple Past",
@@ -606,6 +733,11 @@ class Month2DaySeeder extends Seeder
                     ['wait', 'इंतज़ार करना (intezaar karna)'],
                     ['help', 'मदद करना (madad karna)'],
                 ],
+                'grammar' => "Notice the contrast: today's other tasks used Past Simple questions ('Did "
+                    ."you...?'); now practice their Future Simple twin, 'Will you...?'. Ask your practice "
+                    ."partner 3 questions about tomorrow using 'Will you...?', and answer each with 'will' or "
+                    ."'won't'.",
+                'tense' => TenseKey::FutureSimple,
             ],
             23 => [
                 'title' => 'Wants and Plans',
@@ -627,6 +759,10 @@ class Month2DaySeeder extends Seeder
                     ['think', 'सोचना (sochna)'],
                     ['know', 'जानना (jaanna)'],
                 ],
+                'grammar' => "Future Simple pairs naturally with signal words like 'tomorrow', 'next week', "
+                    ."'soon', and phrases like 'I think' or 'probably' for predictions. Say 3 sentences about "
+                    ."your hopes for next month, using 'will' plus one of these signal words each time.",
+                'tense' => TenseKey::FutureSimple,
             ],
             24 => [
                 'title' => 'What I Remembered and What I Forgot',
@@ -648,6 +784,10 @@ class Month2DaySeeder extends Seeder
                     ['finish', 'खत्म करना (khatam karna)'],
                     ['continue', 'जारी रखना (jaari rakhna)'],
                 ],
+                'grammar' => "Use 'will' for a decision made right at the moment of speaking, not planned "
+                    ."earlier — like 'I forgot my pen, so I will borrow one now.' Make 2 sentences about a "
+                    ."small decision you are making right now, using 'will'.",
+                'tense' => TenseKey::FutureSimple,
             ],
             25 => [
                 'title' => 'Explaining Why: Because & So',
@@ -669,6 +809,10 @@ class Month2DaySeeder extends Seeder
                     ['because', 'क्योंकि (kyonki)'],
                     ['so', 'इसलिए (isliye)'],
                 ],
+                'grammar' => "Combine Future Simple with 'because' or 'so' to explain a promise: 'I will fix "
+                    ."this habit because it slows me down' or 'I lost my keys, so I will buy a spare set.' "
+                    ."Write 2 promise sentences of your own using 'will' with 'because' or 'so'.",
+                'tense' => TenseKey::FutureSimple,
             ],
             26 => [
                 'title' => 'Talking About Future Possibilities',
@@ -690,6 +834,11 @@ class Month2DaySeeder extends Seeder
                     ['although', 'हालाँकि (haalaanki)'],
                     ['for example', 'जैसे कि (jaise ki)'],
                 ],
+                'grammar' => "Important rule: after 'if' or 'when', use Present Simple, not 'will' — the "
+                    ."'will' goes only in the main result clause, as in 'If it rains, I will stay home' (not "
+                    ."'If it will rain'). Check today's Reading sentences and notice that 'will' appears only "
+                    .'once per sentence, never in the if/when part.',
+                'tense' => TenseKey::FutureSimple,
             ],
             27 => [
                 'title' => 'Comparing Then and Now',
@@ -715,6 +864,11 @@ class Month2DaySeeder extends Seeder
                     ['extra', 'अतिरिक्त (atirikt)'],
                     ['more', 'ज़्यादा (zyada)'],
                 ],
+                'grammar' => "Common mistake: using 'will' for a plan you already decided before now — say "
+                    ."'I am going to visit my parents next week' for an already-decided plan, not 'I will "
+                    ."visit my parents next week'. Correct this aloud: 'I will meet him tomorrow at 5, I "
+                    ."decided yesterday' should be 'I am going to meet him tomorrow at 5'.",
+                'tense' => TenseKey::FutureSimple,
             ],
             28 => [
                 'title' => 'Full Mock Conversation Rehearsal',
@@ -729,6 +883,11 @@ class Month2DaySeeder extends Seeder
                 'vocab_intro' => 'No new words today — look back through Days 1-27 and pick your personal 10 '
                     .'hardest words to review.',
                 'vocab' => [],
+                'grammar' => "Before you rehearse, quickly review your Future Simple checklist: 'will' + "
+                    ."base verb (never 'will to'), 'won't' for negatives, and 'Will you...?' for questions. As "
+                    .'you rehearse the future-plan part of the conversation, listen for at least 2 correct '
+                    ."'will' sentences.",
+                'tense' => TenseKey::FutureSimple,
             ],
             29 => [
                 'title' => 'Record & Review',
@@ -743,6 +902,10 @@ class Month2DaySeeder extends Seeder
                 'vocab_intro' => "No new words today — review all Week 4 words once more before tomorrow's "
                     .'milestone conversation.',
                 'vocab' => [],
+                'grammar' => 'Listen back to your Day 28 recording and find one Future Simple sentence you '
+                    ."could improve — maybe 'will' was missing, or the verb after it wasn't in base form. Say "
+                    .'the corrected sentence aloud 3 times.',
+                'tense' => TenseKey::FutureSimple,
             ],
             30 => [
                 'title' => 'Month 2 Milestone — Everyday Fluency Conversation',
@@ -752,6 +915,7 @@ class Month2DaySeeder extends Seeder
                     'listening' => 0,
                     'speaking' => 40,
                     'writing' => 15,
+                    'grammar' => 0,
                 ],
                 'read' => 'No reading exercise today — this is a performance day.',
                 'listen' => 'No listening exercise today — this is a performance day.',
@@ -763,6 +927,10 @@ class Month2DaySeeder extends Seeder
                 'vocab_intro' => 'Month 2 vocabulary is complete — 300 out of 500 words introduced. No new '
                     .'words today; this is a milestone day.',
                 'vocab' => [],
+                'grammar' => 'Closing review: in your milestone conversation, mix both tenses naturally — '
+                    ."Past Simple for what already happened ('I bought vegetables yesterday') and Future "
+                    ."Simple for what comes next ('I will practice speaking every week').",
+                'tense' => TenseKey::FutureSimple,
             ],
         ];
     }

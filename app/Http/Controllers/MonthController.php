@@ -3,7 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Actions\BuildWeekProgressList;
+use App\Enums\SkillArea;
+use App\Models\DayTask;
 use App\Models\Month;
+use App\Models\Tense;
 use App\Models\Week;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -52,7 +55,34 @@ class MonthController extends Controller
                 'vocabulary_target' => $month->vocabulary_target,
             ],
             'weeks' => $weeks,
+            'tenses' => $this->monthTenses($month),
             'canAct' => $learnerProgram !== null,
         ]);
+    }
+
+    /**
+     * This month's distinct tenses taught, derived from its Grammar day
+     * tasks rather than a stored pivot (there is no month<->tense table).
+     *
+     * @return array<int, array{id: int, key: string, name: string}>
+     */
+    private function monthTenses(Month $month): array
+    {
+        return DayTask::query()
+            ->where('type', SkillArea::Grammar)
+            ->whereHas('day', fn ($query) => $query->where('month_id', $month->id))
+            ->with('tense')
+            ->get()
+            ->pluck('tense')
+            ->filter()
+            ->unique('id')
+            ->sortBy('order')
+            ->values()
+            ->map(fn (Tense $tense): array => [
+                'id' => $tense->id,
+                'key' => $tense->key->value,
+                'name' => $tense->name,
+            ])
+            ->all();
     }
 }

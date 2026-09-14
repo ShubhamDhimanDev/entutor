@@ -3,20 +3,23 @@
 namespace Database\Seeders;
 
 use App\Enums\SkillArea;
+use App\Enums\TenseKey;
 use App\Models\Day;
 use App\Models\DayTask;
 use App\Models\DayTaskVocabularyItem;
 use App\Models\Month;
+use App\Models\Tense;
 use App\Models\Week;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
 use RuntimeException;
 
 class Month5DaySeeder extends Seeder
 {
     /**
-     * Proportional minute split across the 5 daily tasks (out of 56 parts):
-     * read/vocabulary/listen/speak/write ~= 8/12/10/16/10. Speaking (the
-     * main practice block) absorbs any rounding remainder.
+     * Proportional minute split across the 6 daily tasks (out of 64 parts):
+     * read/vocabulary/listen/speak/write/grammar ~= 8/12/10/16/10/8. Speaking
+     * (the main practice block) absorbs any rounding remainder.
      *
      * @var array<string, int>
      */
@@ -26,6 +29,7 @@ class Month5DaySeeder extends Seeder
         'listening' => 10,
         'speaking' => 16,
         'writing' => 10,
+        'grammar' => 8,
     ];
 
     /**
@@ -49,6 +53,9 @@ class Month5DaySeeder extends Seeder
         // local day 1-30 within this month must be offset onto the global
         // range that MonthSeeder already assigned to Month 5's weeks.
         $offset = ($month->month_number - 1) * 30;
+
+        /** @var Collection<string, int> $tenseIds */
+        $tenseIds = Tense::query()->pluck('id', 'key');
 
         foreach ($this->days() as $localDayNumber => $data) {
             $dayNumber = $offset + $localDayNumber;
@@ -114,13 +121,33 @@ class Month5DaySeeder extends Seeder
                 'content' => $data['write'],
                 'estimated_minutes' => $minutes['writing'],
             ]);
+
+            if (! isset($data['tense'])) {
+                throw new RuntimeException("Day {$dayNumber} missing 'tense' key.");
+            }
+
+            if (! isset($data['grammar'])) {
+                throw new RuntimeException("Day {$dayNumber} missing 'grammar' content.");
+            }
+
+            $tenseId = $tenseIds[$data['tense']->value] ?? throw new RuntimeException(
+                "Day {$dayNumber}: no Tense found for key '{$data['tense']->value}'."
+            );
+
+            DayTask::create([
+                'day_id' => $day->id,
+                'type' => SkillArea::Grammar,
+                'tense_id' => $tenseId,
+                'content' => $data['grammar'],
+                'estimated_minutes' => $minutes['grammar'],
+            ]);
         }
 
         $this->assertMonth5Integrity($month);
     }
 
     /**
-     * Assertion: exactly 30 Day rows and 150 DayTask rows (30 x 5) exist for
+     * Assertion: exactly 30 Day rows and 180 DayTask rows (30 x 6) exist for
      * Month 5, and every day has exactly one task per SkillArea.
      */
     private function assertMonth5Integrity(Month $month): void
@@ -132,8 +159,8 @@ class Month5DaySeeder extends Seeder
 
         $dayIds = Day::where('month_id', $month->id)->pluck('id');
         $dayTaskCount = DayTask::whereIn('day_id', $dayIds)->count();
-        if ($dayTaskCount !== 150) {
-            throw new RuntimeException("Expected 150 DayTask rows for Month 5, found {$dayTaskCount}.");
+        if ($dayTaskCount !== 180) {
+            throw new RuntimeException("Expected 180 DayTask rows for Month 5, found {$dayTaskCount}.");
         }
 
         $expectedTypes = collect(SkillArea::cases())->map(fn (SkillArea $type): string => $type->value)
@@ -196,6 +223,11 @@ class Month5DaySeeder extends Seeder
                 'speak' => 'Roleplay explaining a wrong bill to your practice partner (the shopkeeper), '
                     .'staying calm and polite throughout.',
                 'write' => 'Write a 5-line dialogue explaining a problem calmly.',
+                'grammar' => "New grammar this week: the Past Perfect — 'had' + past participle — for the "
+                    ."earlier of two past events. Example: 'The bill had already gone wrong before I noticed "
+                    ."it.' Say one Past Perfect sentence about a problem that had already started before you "
+                    .'saw it.',
+                'tense' => TenseKey::PastPerfect,
                 'vocab_intro' => 'No new words this month — review the Money & Shopping words from Month 2 '
                     .'(price, discount, receipt, change) before today\'s roleplay.',
                 'vocab' => [],
@@ -209,6 +241,11 @@ class Month5DaySeeder extends Seeder
                 'speak' => 'Practise asking for 3 different solutions to a problem with your practice '
                     ."partner, using 'Could you please...' and 'Would it be possible to...'.",
                 'write' => 'Write 4 sentences asking for a solution to a problem.',
+                'grammar' => "Keep practising 'had' + past participle for the action that came first. "
+                    ."Example: 'I had asked for help twice before they finally solved it.' Write two Past "
+                    .'Perfect sentences about something that had already happened before you asked for a '
+                    .'solution.',
+                'tense' => TenseKey::PastPerfect,
                 'vocab_intro' => 'No new words today — review the Common Verbs 3 words from Month 4 (solve, '
                     .'fix, ensure) that are useful when asking for a solution.',
                 'vocab' => [],
@@ -222,6 +259,10 @@ class Month5DaySeeder extends Seeder
                 'speak' => 'Roleplay calling about a delayed delivery with your practice partner as the '
                     .'delivery company.',
                 'write' => 'Write the delayed-delivery phone call as a 6-line dialogue.',
+                'grammar' => "Past Perfect in action: 'The delivery had left the warehouse, but it still "
+                    ."hadn't arrived.' Notice 'had' + past participle marks the earlier event. Write one Past "
+                    .'Perfect sentence about what had already happened before your delivery was late.',
+                'tense' => TenseKey::PastPerfect,
                 'vocab_intro' => 'No new words today — review the Travel & Commute words from Month 3 '
                     .'(delay, on time, arrive) before today\'s roleplay.',
                 'vocab' => [],
@@ -236,6 +277,10 @@ class Month5DaySeeder extends Seeder
                 'speak' => 'Roleplay finding a mistake on a restaurant or shop bill with your practice '
                     .'partner, and asking them to correct it.',
                 'write' => 'Write a 5-line dialogue about a mistake on a bill.',
+                'grammar' => "Review affirmative Past Perfect: 'had' + past participle for the earlier "
+                    ."action. Example: 'They had charged me twice before I checked the receipt.' Write one "
+                    .'sentence describing what had happened before you found the mistake on the bill.',
+                'tense' => TenseKey::PastPerfect,
                 'vocab_intro' => 'No new words today — review the Food & Drink and Money & Shopping words '
                     .'from Month 2 (bill, total, order) before today\'s roleplay.',
                 'vocab' => [],
@@ -251,6 +296,11 @@ class Month5DaySeeder extends Seeder
                     .'and polite for the whole conversation.',
                 'write' => 'Write 4 sentences you could use to stay polite when someone is not helping '
                     .'quickly.',
+                'grammar' => "New form: Past Perfect negative = 'had not (hadn't)' + past participle, for "
+                    .'something that had not yet happened before a past moment. Example: '
+                    ."'I hadn't lost my patience before they finally helped me.' Write one negative Past "
+                    .'Perfect sentence about staying calm.',
+                'tense' => TenseKey::PastPerfect,
                 'vocab_intro' => 'No new words today — review the Confidence & Social Words from Month 4 '
                     .'(patient, sincere, respect) that help you stay polite under pressure.',
                 'vocab' => [],
@@ -264,6 +314,10 @@ class Month5DaySeeder extends Seeder
                 'speak' => 'Roleplay a full problem from start to finish with your practice partner: explain '
                     .'the problem, ask for a solution, and agree on next steps, calmly and politely.',
                 'write' => 'Write the full roleplay dialogue you just had, in 8 or more lines.',
+                'grammar' => "Practise Past Perfect negative in your roleplay: 'The shop hadn't offered a "
+                    ."solution before I asked for one.' Use at least one 'hadn't' + past participle sentence "
+                    .'while explaining your problem today.',
+                'tense' => TenseKey::PastPerfect,
                 'vocab_intro' => 'No new words today — review any words from this week that you still find '
                     .'difficult.',
                 'vocab' => [],
@@ -277,6 +331,10 @@ class Month5DaySeeder extends Seeder
                     .'solution, without sounding rude, in an unscripted 3-minute conversation. Your practice '
                     .'partner confirms the Week 1 milestone.',
                 'write' => 'Write the problem conversation you just had, from memory, in 8 or more lines.',
+                'grammar' => "Week 1 review: Past Perfect ('had'/'hadn't' + past participle) shows the "
+                    .'earlier of two past events. Before your milestone conversation, say two sentences about '
+                    .'what had already happened before you raised your problem today.',
+                'tense' => TenseKey::PastPerfect,
                 'vocab_intro' => 'No new words this week — review any Money & Shopping, Travel, or '
                     .'Confidence words that came up while handling problems this week.',
                 'vocab' => [],
@@ -290,6 +348,11 @@ class Month5DaySeeder extends Seeder
                 'speak' => "Your practice partner asks 'What do you think about...?' for 3 everyday topics; "
                     ."answer each with 'I think... because...'.",
                 'write' => 'Write 4 opinion sentences, each with a reason.',
+                'grammar' => "New form: Past Perfect question = 'Had' + subject + past participle. Example: "
+                    ."'Had you thought about this before you tried the app?' Ask your practice partner one "
+                    .'Past Perfect question about something that had happened before they formed their '
+                    .'opinion.',
+                'tense' => TenseKey::PastPerfect,
                 'vocab_intro' => 'No new words today — review the Technology & Phone words from Month 3 that '
                     .'might come up while sharing opinions about apps.',
                 'vocab' => [],
@@ -304,6 +367,10 @@ class Month5DaySeeder extends Seeder
                 'speak' => 'Share an opinion with your practice partner; have them agree with one part and '
                     .'disagree with another, politely.',
                 'write' => 'Write a 4-line dialogue where two people agree and disagree politely.',
+                'grammar' => "More Past Perfect questions: 'Had you already made up your mind before we "
+                    ."talked?' Practise asking and answering one 'Had...?' question with your practice "
+                    .'partner about an opinion you had before today\'s discussion.',
+                'tense' => TenseKey::PastPerfect,
                 'vocab_intro' => 'No new words today — review the Making Plans & Invitations words from '
                     .'Month 3 (agree, disagree, suggestion, opinion).',
                 'vocab' => [],
@@ -317,6 +384,10 @@ class Month5DaySeeder extends Seeder
                 'speak' => 'Compare two options (two shops, two phones, two routes) with your practice '
                     .'partner and give your opinion on which is better.',
                 'write' => 'Write 4 sentences comparing two options and giving your opinion.',
+                'grammar' => "Signal words for Past Perfect: 'before', 'already', 'by the time'. Example: "
+                    ."'I had already compared the two shops before I chose the cheaper one.' Write one Past "
+                    ."Perfect sentence using 'already' or 'before' about comparing two options.",
+                'tense' => TenseKey::PastPerfect,
                 'vocab_intro' => 'No new words today — review the Adjectives from Month 2 (cheap, expensive, '
                     .'important, different) that are useful for comparing options.',
                 'vocab' => [],
@@ -331,6 +402,10 @@ class Month5DaySeeder extends Seeder
                 'speak' => 'Talk to your practice partner about your opinion on 3 everyday topics: the '
                     .'weather, food, and technology.',
                 'write' => 'Write 5 sentences sharing your opinion on 3 different everyday topics.',
+                'grammar' => "More Past Perfect signal words: 'by the time', 'never'. Example: 'By the time "
+                    ."I read the news, the weather had already changed.' Write one sentence about an everyday "
+                    ."topic using 'by the time' with the Past Perfect.",
+                'tense' => TenseKey::PastPerfect,
                 'vocab_intro' => 'No new words today — review any Weather, Food, or Technology words from '
                     .'Months 2-3 that help you discuss these topics.',
                 'vocab' => [],
@@ -344,6 +419,11 @@ class Month5DaySeeder extends Seeder
                 'speak' => "Give your practice partner an opinion with two reasons, using 'first' and "
                     ."'second' to organise your answer.",
                 'write' => 'Write an opinion with two clearly organised reasons.',
+                'grammar' => 'Usage rule: Past Perfect only works when there are two past events and their '
+                    ."order matters — use Past Simple alone if there's just one event. Example: 'My opinion "
+                    ."had changed before I gave my second reason.' Write two linked sentences (Past Perfect + "
+                    .'Past Simple) giving reasons for an opinion.',
+                'tense' => TenseKey::PastPerfect,
                 'vocab_intro' => 'No new words today — review the Connectors from Month 2 (first, next, '
                     .'because, so) that help you organise reasons.',
                 'vocab' => [],
@@ -356,6 +436,11 @@ class Month5DaySeeder extends Seeder
                 'speak' => 'Your practice partner asks follow-up questions after your opinion, like a group '
                     .'discussion; keep answering with reasons for 3 minutes.',
                 'write' => 'Write the discussion you just had, from memory, in 8 or more lines.',
+                'grammar' => "Common mistake: after 'had', use the past participle, not the past-tense "
+                    ."form — 'had went' is wrong, 'had gone' is correct. Fix this: 'I had went to the group "
+                    ."discussion before it started' becomes 'I had gone to the group discussion before it "
+                    ."started.' Correct one Past Perfect verb form you notice yourself getting wrong today.",
+                'tense' => TenseKey::PastPerfect,
                 'vocab_intro' => 'No new words today — review any opinion phrases from this week that you '
                     .'still find difficult.',
                 'vocab' => [],
@@ -369,6 +454,10 @@ class Month5DaySeeder extends Seeder
                     .'least one reason for each, in an unscripted conversation. Your practice partner '
                     .'confirms the Week 2 milestone.',
                 'write' => 'Write both opinions and their reasons, in a clean paragraph.',
+                'grammar' => "Week 2 review: mix all three Past Perfect forms — 'had', 'hadn't', 'Had...?' — "
+                    .'for the earlier of two past events. During your milestone conversation, use at least '
+                    .'one Past Perfect sentence about an opinion you had already formed before today.',
+                'tense' => TenseKey::PastPerfect,
                 'vocab_intro' => 'No new words this week — review any opinion-related vocabulary you used '
                     .'this week.',
                 'vocab' => [],
@@ -382,6 +471,11 @@ class Month5DaySeeder extends Seeder
                 'speak' => 'Disagree with an opinion your practice partner gives you, calmly and '
                     .'respectfully, without raising your voice.',
                 'write' => 'Write 4 sentences you could use to disagree calmly.',
+                'grammar' => "New tense: Future Perfect — 'will have' + past participle — for something that "
+                    ."will be finished before a future point. Example: 'By the end of this talk, I will have "
+                    ."shared my honest opinion.' Say one Future Perfect sentence about a disagreement you "
+                    .'will have settled by next week.',
+                'tense' => TenseKey::FuturePerfect,
                 'vocab_intro' => 'No new words today — review the Feelings & Emotions words from Month 2 '
                     .'(calm, frustrated, patient) that help during disagreements.',
                 'vocab' => [],
@@ -395,6 +489,11 @@ class Month5DaySeeder extends Seeder
                 'speak' => 'Your practice partner complains about something (late delivery, wrong item); '
                     .'respond calmly and offer to help.',
                 'write' => 'Write a 5-line dialogue responding to a complaint.',
+                'grammar' => "More Future Perfect practice: 'will have' + past participle for a "
+                    ."completed-by-then action. Example: 'By tomorrow, I will have fixed this complaint for "
+                    ."you.' Write one Future Perfect sentence promising something you will have done by a "
+                    .'stated time.',
+                'tense' => TenseKey::FuturePerfect,
                 'vocab_intro' => 'No new words today — review the Common Verbs 3 words from Month 4 '
                     .'(apologize, solve, ensure) that help when responding to complaints.',
                 'vocab' => [],
@@ -408,6 +507,10 @@ class Month5DaySeeder extends Seeder
                 'speak' => 'Make a polite complaint to your practice partner (playing a shopkeeper or '
                     .'customer service agent) about a real or imagined problem.',
                 'write' => 'Write your complaint as a 5-line dialogue.',
+                'grammar' => "Future Perfect example: 'By the time I leave, I will have made my complaint "
+                    ."clearly.' The action finishes before the future point marked by 'by the time I leave'. "
+                    ."Write one Future Perfect sentence about your complaint using 'by the time'.",
+                'tense' => TenseKey::FuturePerfect,
                 'vocab_intro' => 'No new words today — review the Money & Shopping words from Month 2 '
                     .'(receipt, total, change) useful for complaints.',
                 'vocab' => [],
@@ -421,6 +524,11 @@ class Month5DaySeeder extends Seeder
                 'speak' => 'Apologize to your practice partner for a real or imagined mistake, and explain '
                     .'what you will do differently.',
                 'write' => 'Write a sincere 4-sentence apology for a mistake.',
+                'grammar' => "New form: Future Perfect negative = 'will not have (won't have)' + past "
+                    ."participle, for something that won't be finished by a future point. Example: 'If I "
+                    ."don't apologise today, I won't have fixed things by tomorrow.' Write one negative "
+                    .'Future Perfect sentence about an apology.',
+                'tense' => TenseKey::FuturePerfect,
                 'vocab_intro' => 'No new words today — review the Common Verbs 3 words from Month 4 '
                     .'(apologize, forgive, trust) before today\'s practice.',
                 'vocab' => [],
@@ -435,6 +543,10 @@ class Month5DaySeeder extends Seeder
                 'speak' => 'Roleplay a situation where your practice partner is upset about something; stay '
                     .'calm, listen, and offer a solution.',
                 'write' => 'Write 4 sentences you could say to calm down an upset conversation.',
+                'grammar' => "Practise the negative form: 'won't have' + past participle. Example: 'She "
+                    ."won't have calmed down by the time we meet again.' Write one 'won't have' sentence "
+                    .'predicting what will still be unfinished by a future point.',
+                'tense' => TenseKey::FuturePerfect,
                 'vocab_intro' => 'No new words today — review the Feelings & Emotions words from Month 2 '
                     .'(frustrated, disappointed, calm) before today\'s roleplay.',
                 'vocab' => [],
@@ -448,6 +560,10 @@ class Month5DaySeeder extends Seeder
                 'speak' => 'Roleplay a full difficult conversation with your practice partner, including a '
                     .'complaint or disagreement and a sincere apology, staying calm throughout.',
                 'write' => 'Write the full roleplay dialogue you just had, in 8 or more lines.',
+                'grammar' => "Mix affirmative and negative Future Perfect in your roleplay: 'By the end of "
+                    ."our talk, I will have apologised, but I won't have solved everything.' Use at least one "
+                    .'Future Perfect sentence, positive or negative, during today\'s roleplay.',
+                'tense' => TenseKey::FuturePerfect,
                 'vocab_intro' => 'No new words today — review any words from this week that you still find '
                     .'difficult.',
                 'vocab' => [],
@@ -461,6 +577,11 @@ class Month5DaySeeder extends Seeder
                     .'apologise where needed, in an unscripted 3-minute conversation. Your practice partner '
                     .'confirms the Week 3 milestone.',
                 'write' => 'Write the conversation you just had, from memory, in 8 or more lines.',
+                'grammar' => "Week 3 review: Future Perfect ('will have'/'won't have' + past participle) "
+                    .'shows what is finished, or not, before a future point. Before your milestone '
+                    .'conversation, say one sentence about what you will have achieved by the end of this '
+                    .'week.',
+                'tense' => TenseKey::FuturePerfect,
                 'vocab_intro' => 'No new words this week — review any difficult-conversation phrases you '
                     .'used this week.',
                 'vocab' => [],
@@ -473,6 +594,10 @@ class Month5DaySeeder extends Seeder
                     .'group at a time.',
                 'speak' => 'Your practice partner reads 5 numbers aloud; repeat each one back correctly.',
                 'write' => 'Write 5 numbers in words, then read them aloud one more time.',
+                'grammar' => "New form: Future Perfect question = 'Will' + subject + 'have' + past "
+                    ."participle. Example: 'Will you have practised these numbers by tomorrow?' Ask your "
+                    .'practice partner one Future Perfect question about today\'s numbers practice.',
+                'tense' => TenseKey::FuturePerfect,
                 'vocab_intro' => 'No new words today — review the Numbers words from Month 1 (hundred, '
                     .'thousand, first, second) before today\'s practice.',
                 'vocab' => [],
@@ -486,6 +611,10 @@ class Month5DaySeeder extends Seeder
                 'speak' => 'Your practice partner says 5 dates aloud; repeat each one back correctly to '
                     .'confirm.',
                 'write' => 'Write 5 dates in words, then read them aloud one more time.',
+                'grammar' => "More Future Perfect questions: 'Will you have memorised these dates by next "
+                    ."week?' Practise asking and answering one 'Will...have...?' question about dates with "
+                    .'your practice partner.',
+                'tense' => TenseKey::FuturePerfect,
                 'vocab_intro' => 'No new words today — review the Time, Days & Months words from Month 1 '
                     .'before today\'s practice.',
                 'vocab' => [],
@@ -499,6 +628,10 @@ class Month5DaySeeder extends Seeder
                 'speak' => 'Your practice partner reads a phone number aloud; write it down, then read it '
                     .'back to confirm.',
                 'write' => 'Write down 3 phone numbers (real or invented) in digits, then in words.',
+                'grammar' => "Signal words for Future Perfect: 'by then', 'by tomorrow', 'by the time'. "
+                    ."Example: 'By the time you call back, I will have written down the phone number.' Write "
+                    ."one Future Perfect sentence using 'by tomorrow' or 'by the time'.",
+                'tense' => TenseKey::FuturePerfect,
                 'vocab_intro' => 'No new words today — review the Technology & Phone words from Month 3 '
                     .'(call, contact, network) before today\'s practice.',
                 'vocab' => [],
@@ -513,6 +646,10 @@ class Month5DaySeeder extends Seeder
                 'speak' => 'Tell your practice partner your address clearly, then ask them to repeat it back '
                     .'to confirm.',
                 'write' => 'Write your address in full sentences, exactly as you would say it aloud.',
+                'grammar' => "More signal words: 'by next year', 'already'. Example: 'By next year, I will "
+                    ."have already moved to a new address.' Write one Future Perfect sentence about your "
+                    ."address using 'by next year'.",
+                'tense' => TenseKey::FuturePerfect,
                 'vocab_intro' => 'No new words today — review the Travel & Commute and Home & Household '
                     .'words from Months 3-4 (near, far, society) before today\'s practice.',
                 'vocab' => [],
@@ -526,6 +663,11 @@ class Month5DaySeeder extends Seeder
                 'speak' => 'Your practice partner says a number, date, or address slightly unclearly; ask '
                     .'them to confirm it using today\'s phrases.',
                 'write' => 'Write 4 sentences you could use to confirm a detail you were not sure about.',
+                'grammar' => 'Usage rule: use Future Perfect only for an action that will be finished by a '
+                    .'deadline, not one still happening at that point. Example: '
+                    ."'By the time I confirm this detail, you will have repeated it twice.' Write one Future "
+                    .'Perfect sentence confirming a detail by a stated deadline.',
+                'tense' => TenseKey::FuturePerfect,
                 'vocab_intro' => 'No new words today — review the Making Plans & Invitations words from '
                     .'Month 3 (confirm, remind) before today\'s practice.',
                 'vocab' => [],
@@ -540,6 +682,11 @@ class Month5DaySeeder extends Seeder
                     .'repeat each one back to confirm, with zero mistakes.',
                 'write' => 'Write everything your practice partner read out, checking it against what they '
                     .'said.',
+                'grammar' => "Common mistake: don't drop 'have' after 'will' — 'will finished' is wrong, it "
+                    ."must be 'will have finished'. Fix this: 'By Friday, I will finished the drill' becomes "
+                    ."'By Friday, I will have finished the drill.' Correct one Future Perfect mistake you "
+                    .'notice in your own speech today.',
+                'tense' => TenseKey::FuturePerfect,
                 'vocab_intro' => 'No new words today — review any numbers, dates, or address phrases you '
                     .'still find difficult.',
                 'vocab' => [],
@@ -553,6 +700,11 @@ class Month5DaySeeder extends Seeder
                 'speak' => 'Run 3 Roleplay Scenarios back-to-back with your practice partner, with no '
                     .'script: a problem, a shared opinion, and a detail-confirmation drill.',
                 'write' => "Write your personal '10 weak phrases' list from Month 5 in your notebook.",
+                'grammar' => 'Free practice: use at least one Future Perfect sentence in each of today\'s 3 '
+                    ."roleplays, for example 'By the end of this, I will have handled a problem, shared an "
+                    ."opinion, and confirmed the details.' No new rule today — just apply 'will have' + past "
+                    .'participle naturally.',
+                'tense' => TenseKey::FuturePerfect,
                 'vocab_intro' => 'No new words today — look back through this month and pick your personal '
                     .'10 hardest phrases to review.',
                 'vocab' => [],
@@ -568,6 +720,10 @@ class Month5DaySeeder extends Seeder
                     .'unscripted answers.',
                 'write' => 'Write one thing that has improved in how you handle problems, opinions, and '
                     .'details since the start of Month 5.',
+                'grammar' => 'Listen to your Day 28 recording and find one place where a Future Perfect '
+                    ."sentence ('will have' + past participle) would sound more precise. Rewrite that "
+                    .'sentence correctly before tomorrow\'s milestone.',
+                'tense' => TenseKey::FuturePerfect,
                 'vocab_intro' => 'No new words today — review all Month 5 phrases once more before '
                     .'tomorrow\'s milestone conversation.',
                 'vocab' => [],
@@ -580,6 +736,7 @@ class Month5DaySeeder extends Seeder
                     'listening' => 0,
                     'speaking' => 40,
                     'writing' => 15,
+                    'grammar' => 0,
                 ],
                 'read' => 'No reading exercise today — this is a performance day.',
                 'listen' => 'No listening exercise today — this is a performance day.',
@@ -589,6 +746,12 @@ class Month5DaySeeder extends Seeder
                     .'against the Month 5 Test rubric.',
                 'write' => "Write a short reflection: 'How I now handle problems, opinions, and difficult "
                     ."conversations, compared to a month ago.'",
+                'grammar' => "Closing review: Past Perfect ('had' + past participle) marks the earlier of "
+                    ."two past events; Future Perfect ('will have' + past participle) marks what will be "
+                    .'finished before a future point. Notice both in one sentence: '
+                    ."'By today, I will have practised everything I had struggled with at the start of this "
+                    ."month.'",
+                'tense' => TenseKey::FuturePerfect,
                 'vocab_intro' => 'No new vocabulary this month — the full 500-word Word Bank has been '
                     .'reviewed and strengthened through application. This is a milestone day.',
                 'vocab' => [],

@@ -25,10 +25,11 @@ class DayController extends Controller
             'week',
             'month',
             // Order by id (creation order) to present the standard
-            // read/vocabulary/listen/speak/write rhythm consistently, rather
-            // than an unspecified DB row order.
+            // read/vocabulary/listen/speak/write/grammar rhythm consistently,
+            // rather than an unspecified DB row order.
             'dayTasks' => fn (HasMany $query) => $query->orderBy('id'),
             'dayTasks.vocabularyItems',
+            'dayTasks.tense',
         ]);
 
         $learnerProgram = $request->user()->learnerProgram;
@@ -71,6 +72,11 @@ class DayController extends Controller
                         'term' => $item->term,
                         'native_meaning' => $item->native_meaning,
                     ]),
+                'tense' => $task->tense === null ? null : [
+                    'id' => $task->tense->id,
+                    'key' => $task->tense->key->value,
+                    'name' => $task->tense->name,
+                ],
             ]),
             'canToggleTasks' => $learnerProgram !== null && $request->user()->id === $learnerProgram->user_id,
         ]);

@@ -3,20 +3,23 @@
 namespace Database\Seeders;
 
 use App\Enums\SkillArea;
+use App\Enums\TenseKey;
 use App\Models\Day;
 use App\Models\DayTask;
 use App\Models\DayTaskVocabularyItem;
 use App\Models\Month;
+use App\Models\Tense;
 use App\Models\Week;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
 use RuntimeException;
 
 class Month1DaySeeder extends Seeder
 {
     /**
-     * Proportional minute split across the 5 daily tasks (out of 56 parts):
-     * read/vocabulary/listen/speak/write ~= 8/12/10/16/10. Speaking (the
-     * main practice block) absorbs any rounding remainder.
+     * Proportional minute split across the 6 daily tasks (out of 64 parts):
+     * read/vocabulary/listen/speak/write/grammar ~= 8/12/10/16/10/8. Speaking
+     * (the main practice block) absorbs any rounding remainder.
      *
      * @var array<string, int>
      */
@@ -26,6 +29,7 @@ class Month1DaySeeder extends Seeder
         'listening' => 10,
         'speaking' => 16,
         'writing' => 10,
+        'grammar' => 8,
     ];
 
     /**
@@ -44,6 +48,9 @@ class Month1DaySeeder extends Seeder
         if ($weeks->count() !== 4) {
             throw new RuntimeException('Expected exactly 4 weeks for Month 1 before seeding days.');
         }
+
+        /** @var Collection<string, int> $tenseIds */
+        $tenseIds = Tense::query()->pluck('id', 'key');
 
         foreach ($this->days() as $dayNumber => $data) {
             $week = $weeks->first(
@@ -107,13 +114,33 @@ class Month1DaySeeder extends Seeder
                 'content' => $data['write'],
                 'estimated_minutes' => $minutes['writing'],
             ]);
+
+            if (! isset($data['tense'])) {
+                throw new RuntimeException("Day {$dayNumber} missing 'tense' key.");
+            }
+
+            if (! isset($data['grammar'])) {
+                throw new RuntimeException("Day {$dayNumber} missing 'grammar' content.");
+            }
+
+            $tenseId = $tenseIds[$data['tense']->value] ?? throw new RuntimeException(
+                "Day {$dayNumber}: no Tense found for key '{$data['tense']->value}'."
+            );
+
+            DayTask::create([
+                'day_id' => $day->id,
+                'type' => SkillArea::Grammar,
+                'tense_id' => $tenseId,
+                'content' => $data['grammar'],
+                'estimated_minutes' => $minutes['grammar'],
+            ]);
         }
 
         $this->assertMonth1Integrity($month);
     }
 
     /**
-     * Assertion: exactly 30 Day rows and 150 DayTask rows (30 x 5) exist for
+     * Assertion: exactly 30 Day rows and 180 DayTask rows (30 x 6) exist for
      * Month 1, and every day has exactly one task per SkillArea.
      */
     private function assertMonth1Integrity(Month $month): void
@@ -125,8 +152,8 @@ class Month1DaySeeder extends Seeder
 
         $dayIds = Day::where('month_id', $month->id)->pluck('id');
         $dayTaskCount = DayTask::whereIn('day_id', $dayIds)->count();
-        if ($dayTaskCount !== 150) {
-            throw new RuntimeException("Expected 150 DayTask rows for Month 1, found {$dayTaskCount}.");
+        if ($dayTaskCount !== 180) {
+            throw new RuntimeException("Expected 180 DayTask rows for Month 1, found {$dayTaskCount}.");
         }
 
         $expectedTypes = collect(SkillArea::cases())->map(fn (SkillArea $type): string => $type->value)
@@ -201,6 +228,9 @@ class Month1DaySeeder extends Seeder
                     ['yes', 'हाँ (haan)'],
                     ['no', 'नहीं (nahin)'],
                 ],
+                'grammar' => 'Learn the Present Simple: Subject + verb (base form); add -s/-es for he/she/it. '
+                    ."Say 5 sentences about your daily habits, e.g. 'I speak Hindi. My friend speaks English.'",
+                'tense' => TenseKey::PresentSimple,
             ],
             2 => [
                 'title' => 'Introducing Yourself',
@@ -226,6 +256,10 @@ class Month1DaySeeder extends Seeder
                     ['house', 'घर (ghar)'],
                     ['home', 'घर (ghar)'],
                 ],
+                'grammar' => "Practise Present Simple with 'am' and action verbs, e.g. 'I live in Pune. My "
+                    ."brother lives in Delhi.' Say 3 sentences about yourself and 3 about a family member, "
+                    .'remembering the -s for he/she/it.',
+                'tense' => TenseKey::PresentSimple,
             ],
             3 => [
                 'title' => 'Politeness Words',
@@ -250,6 +284,10 @@ class Month1DaySeeder extends Seeder
                     ['pardon', 'क्षमा करें (kshama karen)'],
                     ['no problem', 'कोई बात नहीं (koi baat nahin)'],
                 ],
+                'grammar' => 'Learn the spelling rule for he/she/it: verbs ending in -o, -ch, -sh, -ss, or -x '
+                    .'add -es (go → goes, watch → watches), and consonant + y changes to -ies (study → '
+                    .'studies). Say 5 Present Simple sentences using these verbs.',
+                'tense' => TenseKey::PresentSimple,
             ],
             4 => [
                 'title' => 'Numbers 1-20',
@@ -286,6 +324,10 @@ class Month1DaySeeder extends Seeder
                     ['number', 'संख्या (sankhya)'],
                     ['how many', 'कितने (kitne)'],
                 ],
+                'grammar' => 'Learn the Present Simple negative: Subject + do not/does not + verb (base '
+                    ."form). Say 5 negative sentences using numbers, e.g. 'I don't have twenty rupees. She "
+                    ."doesn't own two phones.'",
+                'tense' => TenseKey::PresentSimple,
             ],
             5 => [
                 'title' => 'Numbers 21-100 & Quantity Words',
@@ -309,6 +351,10 @@ class Month1DaySeeder extends Seeder
                     ['all', 'सभी (sabhi)'],
                     ['none', 'कोई नहीं (koi nahin)'],
                 ],
+                'grammar' => "Practise negative Present Simple with quantity words, e.g. 'I don't have many "
+                    ."books. He doesn't need much time.' Say 5 negative sentences about things you have "
+                    .'little or none of.',
+                'tense' => TenseKey::PresentSimple,
             ],
             6 => [
                 'title' => 'Days of the Week',
@@ -331,6 +377,10 @@ class Month1DaySeeder extends Seeder
                     ['weekend', 'सप्ताहांत (saptaahaant)'],
                     ['everyday', 'हर रोज़ (har roz)'],
                 ],
+                'grammar' => 'Learn the Present Simple question: Do/Does + subject + verb (base form)? Ask '
+                    ."your practice partner 5 yes/no questions about their week, e.g. 'Do you work on "
+                    ."Mondays? Does she cook every day?'",
+                'tense' => TenseKey::PresentSimple,
             ],
             7 => [
                 'title' => 'Week 1 Review — First Mini Conversation',
@@ -345,6 +395,11 @@ class Month1DaySeeder extends Seeder
                 'vocab_intro' => 'No new words this week — re-read all 60-70 Week 1 words aloud once, at '
                     .'normal speed, and notice which ones are now easy.',
                 'vocab' => [],
+                'grammar' => 'Review all three Present Simple forms — affirmative, negative, and question — '
+                    .'in one short exchange with your practice partner: state a habit, negate a different '
+                    ."one, then ask a question, e.g. 'I wake up at 6. I don't sleep late. Do you wake up "
+                    ."early too?'",
+                'tense' => TenseKey::PresentSimple,
             ],
             8 => [
                 'title' => 'Months & Dates',
@@ -367,6 +422,10 @@ class Month1DaySeeder extends Seeder
                     ['calendar', 'कैलेंडर (calendar)'],
                     ['century', 'सदी (sadi)'],
                 ],
+                'grammar' => 'Learn the wh-question pattern: wh-word + do/does + subject + verb (base form)? '
+                    ."Ask your practice partner 5 questions about dates and birthdays, e.g. 'When do you "
+                    ."celebrate your birthday? What do you usually do on that day?'",
+                'tense' => TenseKey::PresentSimple,
             ],
             9 => [
                 'title' => 'Telling the Time',
@@ -390,6 +449,10 @@ class Month1DaySeeder extends Seeder
                     ['hour', 'घंटा (ghanta)'],
                     ['noon', 'मध्याह्न (madhyaahn)'],
                 ],
+                'grammar' => 'Learn: Present Simple also describes fixed schedules and timetables, not just '
+                    ."habits, e.g. 'The class starts at 9 o'clock. The train leaves at 6:30.' Say 3 sentences "
+                    .'about fixed times in your own schedule.',
+                'tense' => TenseKey::PresentSimple,
             ],
             10 => [
                 'title' => 'Family Members',
@@ -412,6 +475,10 @@ class Month1DaySeeder extends Seeder
                     ['family', 'परिवार (parivar)'],
                     ['relative', 'रिश्तेदार (rishtedaar)'],
                 ],
+                'grammar' => 'Learn: Present Simple describes permanent situations and facts, such as a '
+                    .'person\'s job, language, or family relationships, e.g. \'My father works in a bank. We '
+                    ."speak Hindi at home.' Say 3 permanent facts about your family.",
+                'tense' => TenseKey::PresentSimple,
             ],
             11 => [
                 'title' => 'More Family & My/His/Her',
@@ -434,6 +501,11 @@ class Month1DaySeeder extends Seeder
                     ['friend', 'दोस्त (dost)'],
                     ['neighbour', 'पड़ोसी (padosi)'],
                 ],
+                'grammar' => 'Learn: state verbs like know, like, want, and believe describe states, not '
+                    .'actions — they never take -ing, even when the meaning is right now. Say 3 sentences '
+                    ."with state verbs about your family, e.g. 'I know my uncle's phone number. My cousin "
+                    ."likes cricket.'",
+                'tense' => TenseKey::PresentSimple,
             ],
             12 => [
                 'title' => 'Describing People',
@@ -456,6 +528,10 @@ class Month1DaySeeder extends Seeder
                     ['busy', 'व्यस्त (vyast)'],
                     ['free', 'खाली (khaali)'],
                 ],
+                'grammar' => "Learn where frequency adverbs go: before the main verb but after 'be' — 'She "
+                    ."always helps me' but 'She is always kind.' Describe 3 people using always, usually, or "
+                    .'never.',
+                'tense' => TenseKey::PresentSimple,
             ],
             13 => [
                 'title' => 'Answering Personal Questions',
@@ -479,6 +555,11 @@ class Month1DaySeeder extends Seeder
                     ['which', 'कौन सा (kaun sa)'],
                     ['whose', 'किसका (kiska)'],
                 ],
+                'grammar' => "Common mistake: after does/doesn't, the main verb stays in its base form — say "
+                    ."'She doesn't want tea' not 'She doesn't wants tea', and 'Does he speak English?' not "
+                    ."'Does he speaks English?' Correct 3 similar mistakes, then answer today's personal "
+                    .'questions using correct Present Simple.',
+                'tense' => TenseKey::PresentSimple,
             ],
             14 => [
                 'title' => 'Week 2 Review — Family, Time & Numbers Together',
@@ -491,6 +572,10 @@ class Month1DaySeeder extends Seeder
                 'vocab_intro' => 'No new words today — review all Week 2 words aloud and notice which ones '
                     .'feel easier now.',
                 'vocab' => [],
+                'grammar' => 'Review Present Simple by combining affirmative, negative, question, and a '
+                    .'state verb in one unscripted mini-monologue about your family and daily routine, e.g. '
+                    ."'I live in ___. I don't work on Sundays. Do you like weekends?'",
+                'tense' => TenseKey::PresentSimple,
             ],
             15 => [
                 'title' => 'Daily Action Verbs',
@@ -513,6 +598,10 @@ class Month1DaySeeder extends Seeder
                     ['cook', 'पकाना (pakaana)'],
                     ['clean', 'साफ़ करना (saaf karna)'],
                 ],
+                'grammar' => 'Learn the Present Continuous: Subject + am/is/are + verb-ing, for actions '
+                    .'happening right now. Say 5 sentences about what you and people around you are doing '
+                    ."right now, e.g. 'I am writing in my notebook. My sister is watching TV.'",
+                'tense' => TenseKey::PresentContinuous,
             ],
             16 => [
                 'title' => 'Frequency Words & Morning Routine',
@@ -535,6 +624,10 @@ class Month1DaySeeder extends Seeder
                     ['dress', 'कपड़े पहनना (kapde pehenna)'],
                     ['comb', 'कंघी करना (kanghi karna)'],
                 ],
+                'grammar' => 'Learn the -ing spelling rules: drop a silent e (write → writing), and double '
+                    .'the final consonant after a single vowel in a short verb (sit → sitting). Say 5 Present '
+                    .'Continuous sentences using these verbs.',
+                'tense' => TenseKey::PresentContinuous,
             ],
             17 => [
                 'title' => 'House & Household Actions',
@@ -557,6 +650,10 @@ class Month1DaySeeder extends Seeder
                     ['message', 'मैसेज करना (message karna)'],
                     ['meet', 'मिलना (milna)'],
                 ],
+                'grammar' => 'Practise Present Continuous with household actions: say what each family '
+                    ."member is doing right now, e.g. 'My mother is cooking food. My brother is sweeping the "
+                    ."floor.'",
+                'tense' => TenseKey::PresentContinuous,
             ],
             18 => [
                 'title' => 'Errands & Everyday Tasks',
@@ -580,6 +677,10 @@ class Month1DaySeeder extends Seeder
                     ['order', 'ऑर्डर करना (order karna)'],
                     ['fix', 'ठीक करना (theek karna)'],
                 ],
+                'grammar' => 'Learn the Present Continuous negative: Subject + am/is/are + not + verb-ing. '
+                    ."Say 5 negative sentences about errands you are not doing right now, e.g. 'I am not "
+                    ."paying the bill today. He isn't checking his messages.'",
+                'tense' => TenseKey::PresentContinuous,
             ],
             19 => [
                 'title' => "Can/Can't — Talking About Ability",
@@ -602,6 +703,10 @@ class Month1DaySeeder extends Seeder
                     ['understand', 'समझना (samajhna)'],
                     ['improve', 'सुधारना (sudhaarna)'],
                 ],
+                'grammar' => 'Learn the Present Continuous question: Am/Is/Are + subject + verb-ing? Ask your '
+                    ."practice partner 5 questions about what they are trying to learn right now, e.g. 'Are "
+                    ."you practising speaking today? Is he improving quickly?'",
+                'tense' => TenseKey::PresentContinuous,
             ],
             20 => [
                 'title' => 'Requests & Offers',
@@ -624,6 +729,10 @@ class Month1DaySeeder extends Seeder
                     ['help me', 'मेरी मदद कीजिए (meri madad kijiye)'],
                     ['give me', 'मुझे दीजिए (mujhe dijiye)'],
                 ],
+                'grammar' => 'Combine negative and question Present Continuous in short exchanges with your '
+                    ."practice partner, e.g. 'Are you waiting for me?' 'No, I'm not waiting — I'm making "
+                    ."tea.' Practise 4 exchanges like this.",
+                'tense' => TenseKey::PresentContinuous,
             ],
             21 => [
                 'title' => 'Week 3 Review — Describe Your Whole Day',
@@ -635,6 +744,10 @@ class Month1DaySeeder extends Seeder
                 'write' => "Write 'My Day' — 8-10 sentences using at least 6 of this week's verbs.",
                 'vocab_intro' => 'No new words today — review all Week 3 words aloud.',
                 'vocab' => [],
+                'grammar' => 'Review all three Present Continuous forms — affirmative, negative, and '
+                    ."question — while describing your day so far, e.g. 'I am sitting at home. I'm not "
+                    ."working today. Are you doing something similar?'",
+                'tense' => TenseKey::PresentContinuous,
             ],
             22 => [
                 'title' => 'Putting It All Together',
@@ -653,6 +766,11 @@ class Month1DaySeeder extends Seeder
                     ['so', 'इसलिए (isliye)'],
                     ['also', 'भी (bhi)'],
                 ],
+                'grammar' => 'Learn: use Present Continuous for temporary situations that are true only '
+                    ."around now, not forever, e.g. 'I am staying with my cousin this week' (temporary) "
+                    ."versus 'I live in Delhi' (permanent, Present Simple). Say 2 sentences contrasting a "
+                    .'temporary and a permanent situation.',
+                'tense' => TenseKey::PresentContinuous,
             ],
             23 => [
                 'title' => 'Two-Way Conversation',
@@ -671,6 +789,10 @@ class Month1DaySeeder extends Seeder
                     ['Really?', 'सच में? (sach mein?)'],
                     ["That's nice", 'यह अच्छा है (yeh achha hai)'],
                 ],
+                'grammar' => 'Learn: Present Continuous can describe a situation that is changing or '
+                    ."developing, e.g. 'The weather is getting colder. My English is improving.' Ask your "
+                    .'practice partner one question about something that is changing in their life.',
+                'tense' => TenseKey::PresentContinuous,
             ],
             24 => [
                 'title' => 'Likes, Dislikes & Hobbies',
@@ -693,6 +815,10 @@ class Month1DaySeeder extends Seeder
                     ['bored', 'ऊबा हुआ (ooba hua)'],
                     ['fun', 'मज़ा (maza)'],
                 ],
+                'grammar' => 'Learn: state verbs like like, love, prefer, and want stay in Present Simple '
+                    ."even when you mean right now — say 'I like this song' not 'I am liking this song'. Say "
+                    .'3 sentences about your hobbies using state verbs correctly.',
+                'tense' => TenseKey::PresentContinuous,
             ],
             25 => [
                 'title' => 'Talking About Plans',
@@ -715,6 +841,10 @@ class Month1DaySeeder extends Seeder
                     ['hope to', 'उम्मीद करना (ummeed karna)'],
                     ['want to', 'चाहना (chaahna)'],
                 ],
+                'grammar' => 'Learn: Present Continuous also describes fixed future plans that already have '
+                    ."a time and place decided, e.g. 'I am meeting my coach on Friday.' Say 3 sentences about "
+                    .'a plan you have already arranged for this week.',
+                'tense' => TenseKey::PresentContinuous,
             ],
             26 => [
                 'title' => 'Handling Surprise Questions',
@@ -733,6 +863,10 @@ class Month1DaySeeder extends Seeder
                     ['well', 'अच्छा (achha)'],
                     ['you know', 'आप जानते हैं (aap jaante hain)'],
                 ],
+                'grammar' => 'Review Present Continuous signal words — now, right now, at the moment, '
+                    .'currently, these days, still — by answering 3 surprise questions your practice partner '
+                    .'asks about what you are doing these days.',
+                'tense' => TenseKey::PresentContinuous,
             ],
             27 => [
                 'title' => 'Correcting Yourself Politely',
@@ -752,6 +886,10 @@ class Month1DaySeeder extends Seeder
                     ['what I meant was', 'मेरा मतलब था (mera matlab tha)'],
                     ['actually', 'असल में (asal mein)'],
                 ],
+                'grammar' => "Common mistake: don't use Present Continuous with state verbs — say 'I believe "
+                    ."you' not 'I am believing you', and 'She prefers tea' not 'She is preferring tea'. "
+                    .'Correct 3 similar sentences, then practise saying them naturally.',
+                'tense' => TenseKey::PresentContinuous,
             ],
             28 => [
                 'title' => 'Full Mock Conversation Rehearsal',
@@ -764,6 +902,10 @@ class Month1DaySeeder extends Seeder
                 'vocab_intro' => 'No new words today — look back through Days 1-27 and pick your personal 10 '
                     .'hardest words to review.',
                 'vocab' => [],
+                'grammar' => 'Freer practice: in your mock conversation, use Present Simple for habits and '
+                    .'facts and Present Continuous for what is happening now or your current plans. Notice '
+                    .'each choice as you rehearse.',
+                'tense' => TenseKey::PresentContinuous,
             ],
             29 => [
                 'title' => 'Record & Review',
@@ -777,6 +919,10 @@ class Month1DaySeeder extends Seeder
                 'vocab_intro' => 'No new words today — review all Week 4 words once more before tomorrow\'s '
                     .'milestone conversation.',
                 'vocab' => [],
+                'grammar' => 'Listen to your Day 28 recording and check your tense choices: mark any '
+                    .'sentence where you used Present Continuous for a habit or a state verb by mistake, '
+                    .'then say the corrected version aloud.',
+                'tense' => TenseKey::PresentContinuous,
             ],
             30 => [
                 'title' => 'Month 1 Milestone — The Real Conversation',
@@ -786,6 +932,7 @@ class Month1DaySeeder extends Seeder
                     'listening' => 0,
                     'speaking' => 40,
                     'writing' => 15,
+                    'grammar' => 0,
                 ],
                 'read' => 'No reading exercise today — this is a performance day.',
                 'listen' => 'No listening exercise today — this is a performance day.',
@@ -796,6 +943,10 @@ class Month1DaySeeder extends Seeder
                 'vocab_intro' => 'Month 1 vocabulary is complete — 150 out of 150 words introduced. No new '
                     .'words today; this is a milestone day.',
                 'vocab' => [],
+                'grammar' => "Closing review: in today's conversation, use Present Simple for facts and "
+                    ."routines, e.g. 'I study every day', and Present Continuous for what is happening now, "
+                    ."e.g. 'I am feeling confident.' Notice how naturally you now switch between the two.",
+                'tense' => TenseKey::PresentContinuous,
             ],
         ];
     }

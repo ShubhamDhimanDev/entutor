@@ -117,6 +117,26 @@ test('a coach cannot toggle a linked learner\'s day task even when actively link
     $this->assertDatabaseCount('learner_day_tasks', 0);
 });
 
+test('a learner can complete and uncomplete a grammar day task', function () {
+    $learner = User::factory()->create(['role' => UserRole::Learner]);
+    $program = LearnerProgram::factory()->create(['user_id' => $learner->id]);
+    $day = Day::factory()->create();
+    $task = DayTask::factory()->grammar()->create(['day_id' => $day->id]);
+
+    $completeResponse = $this->actingAs($learner)->post(route('days.tasks.complete', [$day, $task]));
+
+    $completeResponse->assertSessionHasNoErrors();
+    $this->assertDatabaseHas('learner_day_tasks', [
+        'learner_program_id' => $program->id,
+        'day_task_id' => $task->id,
+    ]);
+
+    $uncompleteResponse = $this->actingAs($learner)->delete(route('days.tasks.uncomplete', [$day, $task]));
+
+    $uncompleteResponse->assertSessionHasNoErrors();
+    $this->assertDatabaseCount('learner_day_tasks', 0);
+});
+
 test('a day task belonging to a different day 404s', function () {
     $learner = User::factory()->create(['role' => UserRole::Learner]);
     LearnerProgram::factory()->create(['user_id' => $learner->id]);

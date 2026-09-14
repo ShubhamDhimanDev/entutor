@@ -100,3 +100,38 @@ export type ConfidenceTopic = {
     name: string;
     questions: ConfidenceQuestion[];
 };
+
+export type TenseTimeOption = {
+    value: string;
+    label: string;
+};
+
+export type TenseRef = {
+    id: number;
+    key: string;
+    name: string;
+};
+
+export type TenseSummary = {
+    id: number;
+    key: string;
+    name: string;
+    time: 'present' | 'past' | 'future';
+    aspect: 'simple' | 'continuous' | 'perfect' | 'perfect_continuous';
+    summary: string;
+};
+
+export type TenseExample = {
+    sentence: string;
+    native_meaning: string;
+};
+
+export type TenseDetail = TenseSummary & {
+    structure_affirmative: string;
+    structure_negative: string;
+    structure_interrogative: string;
+    usage_rules: string[];
+    signal_words: string[];
+    examples: TenseExample[];
+    common_confusions: string | null;
+};

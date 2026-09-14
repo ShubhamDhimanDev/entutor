@@ -3,20 +3,23 @@
 namespace Database\Seeders;
 
 use App\Enums\SkillArea;
+use App\Enums\TenseKey;
 use App\Models\Day;
 use App\Models\DayTask;
 use App\Models\DayTaskVocabularyItem;
 use App\Models\Month;
+use App\Models\Tense;
 use App\Models\Week;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
 use RuntimeException;
 
 class Month4DaySeeder extends Seeder
 {
     /**
-     * Proportional minute split across the 5 daily tasks (out of 56 parts):
-     * read/vocabulary/listen/speak/write ~= 8/12/10/16/10. Speaking (the
-     * main practice block) absorbs any rounding remainder.
+     * Proportional minute split across the 6 daily tasks (out of 64 parts):
+     * read/vocabulary/listen/speak/write/grammar ~= 8/12/10/16/10/8. Speaking
+     * (the main practice block) absorbs any rounding remainder.
      *
      * @var array<string, int>
      */
@@ -26,6 +29,7 @@ class Month4DaySeeder extends Seeder
         'listening' => 10,
         'speaking' => 16,
         'writing' => 10,
+        'grammar' => 8,
     ];
 
     /**
@@ -49,6 +53,9 @@ class Month4DaySeeder extends Seeder
         // local day 1-30 within this month must be offset onto the global
         // range that MonthSeeder already assigned to Month 4's weeks.
         $offset = ($month->month_number - 1) * 30;
+
+        /** @var Collection<string, int> $tenseIds */
+        $tenseIds = Tense::query()->pluck('id', 'key');
 
         foreach ($this->days() as $localDayNumber => $data) {
             $dayNumber = $offset + $localDayNumber;
@@ -114,13 +121,33 @@ class Month4DaySeeder extends Seeder
                 'content' => $data['write'],
                 'estimated_minutes' => $minutes['writing'],
             ]);
+
+            if (! isset($data['tense'])) {
+                throw new RuntimeException("Day {$dayNumber} missing 'tense' key.");
+            }
+
+            if (! isset($data['grammar'])) {
+                throw new RuntimeException("Day {$dayNumber} missing 'grammar' content.");
+            }
+
+            $tenseId = $tenseIds[$data['tense']->value] ?? throw new RuntimeException(
+                "Day {$dayNumber}: no Tense found for key '{$data['tense']->value}'."
+            );
+
+            DayTask::create([
+                'day_id' => $day->id,
+                'type' => SkillArea::Grammar,
+                'tense_id' => $tenseId,
+                'content' => $data['grammar'],
+                'estimated_minutes' => $minutes['grammar'],
+            ]);
         }
 
         $this->assertMonth4Integrity($month);
     }
 
     /**
-     * Assertion: exactly 30 Day rows and 150 DayTask rows (30 x 5) exist for
+     * Assertion: exactly 30 Day rows and 180 DayTask rows (30 x 6) exist for
      * Month 4, and every day has exactly one task per SkillArea.
      */
     private function assertMonth4Integrity(Month $month): void
@@ -132,8 +159,8 @@ class Month4DaySeeder extends Seeder
 
         $dayIds = Day::where('month_id', $month->id)->pluck('id');
         $dayTaskCount = DayTask::whereIn('day_id', $dayIds)->count();
-        if ($dayTaskCount !== 150) {
-            throw new RuntimeException("Expected 150 DayTask rows for Month 4, found {$dayTaskCount}.");
+        if ($dayTaskCount !== 180) {
+            throw new RuntimeException("Expected 180 DayTask rows for Month 4, found {$dayTaskCount}.");
         }
 
         $expectedTypes = collect(SkillArea::cases())->map(fn (SkillArea $type): string => $type->value)
@@ -199,6 +226,10 @@ class Month4DaySeeder extends Seeder
                     ['explain', 'समझाना (samjhaana)'],
                     ['describe', 'वर्णन करना (varnan karna)'],
                 ],
+                'grammar' => 'Learn the Future Continuous: Subject + will + be + verb-ing, for an action in '
+                    ."progress at a specific future time. Complete aloud: 'This time tomorrow, I will be "
+                    ."explaining how this app works.'",
+                'tense' => TenseKey::FutureContinuous,
             ],
             2 => [
                 'title' => 'Handling Everyday Tasks',
@@ -215,6 +246,10 @@ class Month4DaySeeder extends Seeder
                     ['handle', 'संभालना (sambhaalna)'],
                     ['manage', 'प्रबंधित करना (prabandhit karna)'],
                 ],
+                'grammar' => 'Practice more Future Continuous affirmatives (will + be + verb-ing). Say two '
+                    ."sentences about what you will be doing at 6 p.m. tomorrow, such as 'I will be managing "
+                    ."my phone notifications.'",
+                'tense' => TenseKey::FutureContinuous,
             ],
             3 => [
                 'title' => 'Organizing Your Day',
@@ -231,6 +266,10 @@ class Month4DaySeeder extends Seeder
                     ['organize', 'व्यवस्थित करना (vyavasthit karna)'],
                     ['arrange', 'व्यवस्था करना (vyavastha karna)'],
                 ],
+                'grammar' => "Learn the negative form: Subject + will not (won't) + be + verb-ing. Say: "
+                    ."'Tomorrow morning, I won't be organizing my apps — I'll be resting.' Make one more "
+                    .'negative sentence about tomorrow.',
+                'tense' => TenseKey::FutureContinuous,
             ],
             4 => [
                 'title' => 'Deliveries & Collecting Things',
@@ -247,6 +286,10 @@ class Month4DaySeeder extends Seeder
                     ['deliver', 'पहुँचाना (pahunchaana)'],
                     ['collect', 'इकट्ठा करना (ikattha karna)'],
                 ],
+                'grammar' => "Practice more Future Continuous negatives with won't + be + verb-ing. Say: 'The "
+                    ."delivery driver won't be collecting parcels after 8 p.m.' Make your own negative "
+                    .'sentence about a delivery.',
+                'tense' => TenseKey::FutureContinuous,
             ],
             5 => [
                 'title' => 'Getting Help & Support',
@@ -262,6 +305,9 @@ class Month4DaySeeder extends Seeder
                     ['provide', 'प्रदान करना (pradaan karna)'],
                     ['support', 'सहायता करना (sahaayata karna)'],
                 ],
+                'grammar' => 'Learn the question form: Will + subject + be + verb-ing? Ask your practice '
+                    ."partner: 'Will you be calling support this week?' and answer using the same structure.",
+                'tense' => TenseKey::FutureContinuous,
             ],
             6 => [
                 'title' => 'Solving Problems & Responding',
@@ -279,6 +325,10 @@ class Month4DaySeeder extends Seeder
                     ['inform', 'सूचित करना (soochit karna)'],
                     ['respond', 'जवाब देना (jawaab dena)'],
                 ],
+                'grammar' => 'Practice more Future Continuous questions. Ask your practice partner: '
+                    ."'What will you be doing if the app has a problem again?' and answer in a full will + "
+                    .'be + verb-ing sentence.',
+                'tense' => TenseKey::FutureContinuous,
             ],
             7 => [
                 'title' => 'Week 1 Review — Explain How to Use an App/Website Milestone',
@@ -292,6 +342,10 @@ class Month4DaySeeder extends Seeder
                 'vocab_intro' => 'No new words today — review all Week 1 words aloud and notice which ones '
                     .'feel easier now.',
                 'vocab' => [],
+                'grammar' => "Review this week's Future Continuous forms — affirmative, negative, and "
+                    .'question. Before your milestone roleplay, say one sentence of each type about '
+                    .'explaining an app tomorrow.',
+                'tense' => TenseKey::FutureContinuous,
             ],
             8 => [
                 'title' => 'Speaking Confidently at the Bank',
@@ -310,6 +364,10 @@ class Month4DaySeeder extends Seeder
                     ['prefer', 'पसंद करना (pasand karna)'],
                     ['point of view', 'नज़रिया (nazariya)'],
                 ],
+                'grammar' => "Learn a key signal phrase: 'this time next week/tomorrow' usually signals "
+                    ."Future Continuous. Say: 'This time next week, I will be introducing myself to a new "
+                    ."bank clerk.'",
+                'tense' => TenseKey::FutureContinuous,
             ],
             9 => [
                 'title' => 'Explaining Your Banking Needs',
@@ -329,6 +387,10 @@ class Month4DaySeeder extends Seeder
                     ['goal', 'लक्ष्य (lakshya)'],
                     ['background', 'पृष्ठभूमि (prishthbhoomi)'],
                 ],
+                'grammar' => 'Use Future Continuous for planned, ongoing future arrangements, not sudden '
+                    ."decisions. Say: 'Next Monday, I will be discussing my account options with the bank "
+                    ."manager,' and explain that this is an arrangement already planned.",
+                'tense' => TenseKey::FutureContinuous,
             ],
             10 => [
                 'title' => 'Building Trust with Bank Staff',
@@ -347,6 +409,10 @@ class Month4DaySeeder extends Seeder
                     ['honest', 'ईमानदार (imaandaar)'],
                     ['respect', 'सम्मान (sammaan)'],
                 ],
+                'grammar' => 'Use Future Continuous to ask politely about someone\'s plans, without sounding '
+                    ."like a direct request. Ask your practice partner: 'Will you be reviewing my account "
+                    ."this week?' instead of a blunt request.",
+                'tense' => TenseKey::FutureContinuous,
             ],
             11 => [
                 'title' => 'Staying Positive in Difficult Conversations',
@@ -365,6 +431,10 @@ class Month4DaySeeder extends Seeder
                     ['encourage', 'प्रोत्साहित करना (protsaahit karna)'],
                     ['brave', 'बहादुर (bahadur)'],
                 ],
+                'grammar' => 'Compare Future Continuous with Future Simple: use will + be + verb-ing for an '
+                    ."action in progress at a future time, and plain 'will' for a single decision or "
+                    .'promise. Say one sentence of each about thanking the bank clerk tomorrow.',
+                'tense' => TenseKey::FutureContinuous,
             ],
             12 => [
                 'title' => 'Staying Calm While You Wait',
@@ -382,6 +452,10 @@ class Month4DaySeeder extends Seeder
                     ['generous', 'उदार (udaar)'],
                     ['cheerful', 'ख़ुशमिज़ाज (khushmizaaj)'],
                 ],
+                'grammar' => "Common mistake: state verbs like 'know,' 'want,' and 'believe' never take a "
+                    ."continuous form. Correct this sentence aloud: 'I will be knowing the answer by "
+                    ."tomorrow.' Say the correct version using plain 'will.'",
+                'tense' => TenseKey::FutureContinuous,
             ],
             13 => [
                 'title' => 'Being Confident with Your Money',
@@ -402,6 +476,11 @@ class Month4DaySeeder extends Seeder
                     ['responsible', 'ज़िम्मेदार (zimmedaar)'],
                     ['genuine', 'सच्चा (sachcha)'],
                 ],
+                'grammar' => "Common mistake: don't confuse Future Continuous (action in progress) with "
+                    ."Future Perfect (action finished by a deadline). Compare: 'At 5 p.m., I will be paying "
+                    ."my bills' with 'By 5 p.m., I will have paid my bills,' and say which one describes "
+                    .'something already finished.',
+                'tense' => TenseKey::FutureContinuous,
             ],
             14 => [
                 'title' => 'Week 2 Review — Explain a Payment or Bank Visit Milestone',
@@ -415,6 +494,10 @@ class Month4DaySeeder extends Seeder
                 'vocab_intro' => 'No new words today — review all Week 2 words aloud and notice which ones '
                     .'feel easier now.',
                 'vocab' => [],
+                'grammar' => 'Review all three Future Continuous forms before your bank-visit roleplay. Use '
+                    ."at least one will + be + verb-ing sentence, such as 'I will be explaining my "
+                    ."transaction problem,' during the conversation.",
+                'tense' => TenseKey::FutureContinuous,
             ],
             15 => [
                 'title' => 'Talking About Your Home',
@@ -433,6 +516,10 @@ class Month4DaySeeder extends Seeder
                     ['landlord', 'मकान मालिक (makaan maalik)'],
                     ['repair', 'मरम्मत (marammat)'],
                 ],
+                'grammar' => 'Learn the Present Perfect Continuous: Subject + have/has + been + verb-ing, '
+                    ."for an action that started in the past and is still continuing now. Say: 'I have been "
+                    ."living in this house for two years.'",
+                'tense' => TenseKey::PresentPerfectContinuous,
             ],
             16 => [
                 'title' => 'Home Utilities & Bills',
@@ -451,6 +538,10 @@ class Month4DaySeeder extends Seeder
                     ['bill (household)', 'बिल (bill)'],
                     ['furniture', 'फ़र्नीचर (furniture)'],
                 ],
+                'grammar' => "Practice have/has + been + verb-ing with 'for' and 'since' to show duration. "
+                    ."Say: 'We have been paying our electricity bill online since January,' then make your "
+                    .'own sentence about a household bill.',
+                'tense' => TenseKey::PresentPerfectContinuous,
             ],
             17 => [
                 'title' => 'Rooms & Cleaning',
@@ -468,6 +559,10 @@ class Month4DaySeeder extends Seeder
                     ['bathroom', 'बाथरूम (bathroom)'],
                     ['broom', 'झाड़ू (jhaadu)'],
                 ],
+                'grammar' => 'Learn the negative form: Subject + have/has + not + been + verb-ing. Say: '
+                    ."'I haven't been cleaning the kitchen properly this week.' Make one negative sentence "
+                    .'about another room.',
+                'tense' => TenseKey::PresentPerfectContinuous,
             ],
             18 => [
                 'title' => 'Reporting a Home Problem',
@@ -486,6 +581,10 @@ class Month4DaySeeder extends Seeder
                     ['switch', 'स्विच (switch)'],
                     ['fan', 'पंखा (pankha)'],
                 ],
+                'grammar' => "Practice more negatives: haven't/hasn't + been + verb-ing. Say: 'The plumber "
+                    ."hasn't been answering my calls.' Describe a home problem using the same negative "
+                    .'structure.',
+                'tense' => TenseKey::PresentPerfectContinuous,
             ],
             19 => [
                 'title' => 'Around the Neighbourhood',
@@ -503,6 +602,10 @@ class Month4DaySeeder extends Seeder
                     ['neighbourhood', 'मोहल्ला (mohalla)'],
                     ['society (residential)', 'सोसाइटी (society)'],
                 ],
+                'grammar' => 'Learn the question form: Have/Has + subject + been + verb-ing? Ask your '
+                    ."practice partner: 'How long have you been living in your neighbourhood?' and answer "
+                    .'with have/has + been + verb-ing.',
+                'tense' => TenseKey::PresentPerfectContinuous,
             ],
             20 => [
                 'title' => 'Society Life: Maintenance & Neighbours',
@@ -523,6 +626,10 @@ class Month4DaySeeder extends Seeder
                     ['borrow', 'उधार लेना (udhaar lena)'],
                     ['lend', 'उधार देना (udhaar dena)'],
                 ],
+                'grammar' => 'Practice more questions with have/has + been + verb-ing. Ask: '
+                    ."'Has your neighbour been borrowing anything from you lately?' and answer with a full "
+                    .'sentence.',
+                'tense' => TenseKey::PresentPerfectContinuous,
             ],
             21 => [
                 'title' => 'Week 3 Review — Describe a Home Problem to a Repair Person Milestone',
@@ -535,6 +642,10 @@ class Month4DaySeeder extends Seeder
                 'write' => 'Write the repair conversation, from memory, in 8 or more lines.',
                 'vocab_intro' => 'No new words today — review all Week 3 words aloud.',
                 'vocab' => [],
+                'grammar' => "Review this week's Present Perfect Continuous forms — affirmative, negative, "
+                    .'and question — before your repair roleplay. Use at least one have/has + been + '
+                    ."verb-ing sentence, such as 'The tap has been leaking since Monday.'",
+                'tense' => TenseKey::PresentPerfectContinuous,
             ],
             22 => [
                 'title' => 'Explaining How I Pay a Bill',
@@ -552,6 +663,10 @@ class Month4DaySeeder extends Seeder
                     ['ensure', 'सुनिश्चित करना (sunishchit karna)'],
                     ['achieve', 'हासिल करना (haasil karna)'],
                 ],
+                'grammar' => "Learn the key signal words 'for,' 'since,' and 'how long' — they usually point "
+                    ."to Present Perfect Continuous. Say: 'I have been paying my bills online for two years "
+                    ."now.'",
+                'tense' => TenseKey::PresentPerfectContinuous,
             ],
             23 => [
                 'title' => 'Explaining How I Book a Ticket',
@@ -567,6 +682,10 @@ class Month4DaySeeder extends Seeder
                     ['review', 'समीक्षा करना (samiksha karna)'],
                     ['monitor', 'निगरानी करना (nigraani karna)'],
                 ],
+                'grammar' => 'Use Present Perfect Continuous for an action that is still going on right now, '
+                    ."not a finished amount. Say: 'I have been booking my tickets on this app for months,' "
+                    .'and confirm that it is still true today.',
+                'tense' => TenseKey::PresentPerfectContinuous,
             ],
             24 => [
                 'title' => 'Negotiating and Recommending',
@@ -583,6 +702,10 @@ class Month4DaySeeder extends Seeder
                     ['negotiate', 'बातचीत करना (baatcheet karna)'],
                     ['recommend', 'सिफ़ारिश करना (sifaarish karna)'],
                 ],
+                'grammar' => 'Use Present Perfect Continuous to explain a present result from a recently '
+                    ."stopped action. Say: 'My throat is sore because I have been negotiating on the phone "
+                    ."all morning.' Make one more sentence with 'because.'",
+                'tense' => TenseKey::PresentPerfectContinuous,
             ],
             25 => [
                 'title' => 'Celebrating Success, Apologizing for Mistakes',
@@ -599,6 +722,11 @@ class Month4DaySeeder extends Seeder
                     ['celebrate', 'जश्न मनाना (jashn manaana)'],
                     ['apologize', 'माफ़ी माँगना (maafi maangna)'],
                 ],
+                'grammar' => 'Compare Present Perfect Continuous with Present Perfect Simple: use have/has '
+                    ."been + verb-ing to stress duration ('I have been celebrating all evening'), and "
+                    .'have/has + past participle to stress a finished result '
+                    ."('I have celebrated three festivals this year').",
+                'tense' => TenseKey::PresentPerfectContinuous,
             ],
             26 => [
                 'title' => 'Forgiving & Sharing',
@@ -616,6 +744,10 @@ class Month4DaySeeder extends Seeder
                     ['forgive', 'माफ़ करना (maaf karna)'],
                     ['share', 'साझा करना (saanjha karna)'],
                 ],
+                'grammar' => "Common mistake: state verbs like 'know,' 'believe,' and 'trust' don't take "
+                    ."Present Perfect Continuous. Correct this sentence aloud: 'I have been trusting him for "
+                    ."years.' Say the correct version using 'have trusted' or 'have known.'",
+                'tense' => TenseKey::PresentPerfectContinuous,
             ],
             27 => [
                 'title' => 'Thanking & Trusting',
@@ -632,6 +764,10 @@ class Month4DaySeeder extends Seeder
                     ['thank', 'धन्यवाद देना (dhanyavaad dena)'],
                     ['trust', 'भरोसा करना (bharosa karna)'],
                 ],
+                'grammar' => "Common mistake: don't confuse 'for' (a length of time) with 'since' (a "
+                    ."starting point). Correct this sentence aloud: 'I have been thanking her for last "
+                    ."week.' Then make your own correct sentence using 'since.'",
+                'tense' => TenseKey::PresentPerfectContinuous,
             ],
             28 => [
                 'title' => 'Full Mock Conversation Rehearsal',
@@ -646,6 +782,10 @@ class Month4DaySeeder extends Seeder
                 'vocab_intro' => 'No new words today — look back through Days 1-27 and pick your personal 10 '
                     .'hardest words to review.',
                 'vocab' => [],
+                'grammar' => 'Freer practice: during your rehearsal, include at least two Present Perfect '
+                    .'Continuous sentences about how long you have been learning or practicing English this '
+                    .'month.',
+                'tense' => TenseKey::PresentPerfectContinuous,
             ],
             29 => [
                 'title' => 'Record & Review',
@@ -659,6 +799,10 @@ class Month4DaySeeder extends Seeder
                 'vocab_intro' => "No new words today — review all Week 4 words once more before tomorrow's "
                     .'milestone.',
                 'vocab' => [],
+                'grammar' => 'Listen to your Day 28 recording and count how many have/has + been + verb-ing '
+                    ."sentences you used correctly. Add one more now, completing: 'I have been practicing "
+                    ."English for ___.'",
+                'tense' => TenseKey::PresentPerfectContinuous,
             ],
             30 => [
                 'title' => 'Month 4 Milestone — Explain the Process',
@@ -668,6 +812,7 @@ class Month4DaySeeder extends Seeder
                     'listening' => 0,
                     'speaking' => 40,
                     'writing' => 15,
+                    'grammar' => 0,
                 ],
                 'read' => 'No reading exercise today — this is a performance day.',
                 'listen' => 'No listening exercise today — this is a performance day.',
@@ -679,6 +824,10 @@ class Month4DaySeeder extends Seeder
                 'vocab_intro' => 'Word Bank complete — 500 out of 500 words introduced across Months 1-4. No '
                     .'new words today; this is a milestone day.',
                 'vocab' => [],
+                'grammar' => "Closing review: say one Future Continuous sentence ('At this time next year, I "
+                    ."will be using English confidently') and one Present Perfect Continuous sentence "
+                    ."('I have been learning English for four months') to close out Month 4.",
+                'tense' => TenseKey::PresentPerfectContinuous,
             ],
         ];
     }
