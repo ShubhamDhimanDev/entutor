@@ -16,15 +16,17 @@ use Illuminate\Support\Carbon;
  * @property int $id
  * @property int $day_id
  * @property SkillArea $type
+ * @property int|null $tense_id
  * @property string $content
  * @property int $estimated_minutes
  * @property Carbon|null $created_at
  * @property Carbon|null $updated_at
  * @property-read Day $day
+ * @property-read Tense|null $tense
  * @property-read Collection<int, DayTaskVocabularyItem> $vocabularyItems
  * @property-read Collection<int, LearnerDayTask> $learnerDayTasks
  */
-#[Fillable(['day_id', 'type', 'content', 'estimated_minutes'])]
+#[Fillable(['day_id', 'type', 'tense_id', 'content', 'estimated_minutes'])]
 class DayTask extends Model
 {
     /** @use HasFactory<DayTaskFactory> */
@@ -49,6 +51,14 @@ class DayTask extends Model
     public function day(): BelongsTo
     {
         return $this->belongsTo(Day::class);
+    }
+
+    /**
+     * @return BelongsTo<Tense, $this>
+     */
+    public function tense(): BelongsTo
+    {
+        return $this->belongsTo(Tense::class);
     }
 
     /**

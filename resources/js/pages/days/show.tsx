@@ -1,8 +1,10 @@
-import { Form, Head } from '@inertiajs/react';
+import { Form, Head, Link } from '@inertiajs/react';
 import {
+    ArrowRight,
     BookOpen,
     CheckSquare,
     Headphones,
+    Languages,
     Mic,
     PenLine,
     Square,
@@ -22,6 +24,7 @@ import {
 import { cn } from '@/lib/utils';
 import { show as showDay } from '@/routes/days';
 import { show as showMonth } from '@/routes/months';
+import { show as showTense } from '@/routes/tenses';
 import type { DayTask, SkillArea } from '@/types';
 
 type Day = { id: number; day_number: number; title: string };
@@ -37,6 +40,7 @@ const SKILL_META: Record<
     listening: { label: 'Listening', icon: Headphones },
     speaking: { label: 'Speaking', icon: Mic },
     writing: { label: 'Writing', icon: PenLine },
+    grammar: { label: 'Grammar', icon: Languages },
 };
 
 export default function DayShow({
@@ -100,6 +104,19 @@ export default function DayShow({
                                     </CardDescription>
                                 </CardHeader>
                                 <CardContent className="space-y-3">
+                                    {task.type === 'grammar' && task.tense && (
+                                        <Link
+                                            href={showTense({
+                                                tense: task.tense.key,
+                                            })}
+                                            className="text-primary inline-flex items-center gap-1 text-sm font-medium hover:underline"
+                                            data-test={`task-${task.id}-tense-link`}
+                                        >
+                                            Grammar focus: {task.tense.name}
+                                            <ArrowRight className="size-3.5" />
+                                        </Link>
+                                    )}
+
                                     {task.vocabulary_items.length > 0 && (
                                         <ul className="grid gap-1 text-sm sm:grid-cols-2">
                                             {task.vocabulary_items.map(

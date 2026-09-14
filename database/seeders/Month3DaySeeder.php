@@ -3,20 +3,23 @@
 namespace Database\Seeders;
 
 use App\Enums\SkillArea;
+use App\Enums\TenseKey;
 use App\Models\Day;
 use App\Models\DayTask;
 use App\Models\DayTaskVocabularyItem;
 use App\Models\Month;
+use App\Models\Tense;
 use App\Models\Week;
 use Illuminate\Database\Seeder;
+use Illuminate\Support\Collection;
 use RuntimeException;
 
 class Month3DaySeeder extends Seeder
 {
     /**
-     * Proportional minute split across the 5 daily tasks (out of 56 parts):
-     * read/vocabulary/listen/speak/write ~= 8/12/10/16/10. Speaking (the
-     * main practice block) absorbs any rounding remainder.
+     * Proportional minute split across the 6 daily tasks (out of 64 parts):
+     * read/vocabulary/listen/speak/write/grammar ~= 8/12/10/16/10/8. Speaking
+     * (the main practice block) absorbs any rounding remainder.
      *
      * @var array<string, int>
      */
@@ -26,6 +29,7 @@ class Month3DaySeeder extends Seeder
         'listening' => 10,
         'speaking' => 16,
         'writing' => 10,
+        'grammar' => 8,
     ];
 
     /**
@@ -49,6 +53,9 @@ class Month3DaySeeder extends Seeder
         // local day 1-30 within this month must be offset onto the global
         // range that MonthSeeder already assigned to Month 3's weeks.
         $offset = ($month->month_number - 1) * 30;
+
+        /** @var Collection<string, int> $tenseIds */
+        $tenseIds = Tense::query()->pluck('id', 'key');
 
         foreach ($this->days() as $localDayNumber => $data) {
             $dayNumber = $offset + $localDayNumber;
@@ -114,13 +121,33 @@ class Month3DaySeeder extends Seeder
                 'content' => $data['write'],
                 'estimated_minutes' => $minutes['writing'],
             ]);
+
+            if (! isset($data['tense'])) {
+                throw new RuntimeException("Day {$dayNumber} missing 'tense' key.");
+            }
+
+            if (! isset($data['grammar'])) {
+                throw new RuntimeException("Day {$dayNumber} missing 'grammar' content.");
+            }
+
+            $tenseId = $tenseIds[$data['tense']->value] ?? throw new RuntimeException(
+                "Day {$dayNumber}: no Tense found for key '{$data['tense']->value}'."
+            );
+
+            DayTask::create([
+                'day_id' => $day->id,
+                'type' => SkillArea::Grammar,
+                'tense_id' => $tenseId,
+                'content' => $data['grammar'],
+                'estimated_minutes' => $minutes['grammar'],
+            ]);
         }
 
         $this->assertMonth3Integrity($month);
     }
 
     /**
-     * Assertion: exactly 30 Day rows and 150 DayTask rows (30 x 5) exist for
+     * Assertion: exactly 30 Day rows and 180 DayTask rows (30 x 6) exist for
      * Month 3, and every day has exactly one task per SkillArea.
      */
     private function assertMonth3Integrity(Month $month): void
@@ -132,8 +159,8 @@ class Month3DaySeeder extends Seeder
 
         $dayIds = Day::where('month_id', $month->id)->pluck('id');
         $dayTaskCount = DayTask::whereIn('day_id', $dayIds)->count();
-        if ($dayTaskCount !== 150) {
-            throw new RuntimeException("Expected 150 DayTask rows for Month 3, found {$dayTaskCount}.");
+        if ($dayTaskCount !== 180) {
+            throw new RuntimeException("Expected 180 DayTask rows for Month 3, found {$dayTaskCount}.");
         }
 
         $expectedTypes = collect(SkillArea::cases())->map(fn (SkillArea $type): string => $type->value)
@@ -201,6 +228,10 @@ class Month3DaySeeder extends Seeder
                     ['rain', 'बारिश (baarish)'],
                     ['sun', 'धूप (dhoop)'],
                 ],
+                'grammar' => 'New tense: Past Continuous. Structure: subject + was/were + verb-ing, for an '
+                    .'action in progress at a specific past moment. Drill: say 2 sentences about what the '
+                    ."weather was doing at a specific time yesterday, e.g. 'At 6 a.m., it was raining.'",
+                'tense' => TenseKey::PastContinuous,
             ],
             2 => [
                 'title' => 'Seasons of the Year',
@@ -219,6 +250,10 @@ class Month3DaySeeder extends Seeder
                     ['winter', 'सर्दी (sardi)'],
                     ['monsoon', 'मानसून (monsoon)'],
                 ],
+                'grammar' => 'Keep practising Past Continuous affirmative sentences (was/were + verb-ing) '
+                    .'with plural subjects. Drill: describe what was happening last monsoon season — say '
+                    ."'The wind was blowing' or 'The clouds were covering the sky.'",
+                'tense' => TenseKey::PastContinuous,
             ],
             3 => [
                 'title' => 'Extreme Weather Small Talk',
@@ -238,6 +273,11 @@ class Month3DaySeeder extends Seeder
                     ['flood', 'बाढ़ (baadh)'],
                     ['storm', 'तूफ़ान (toofaan)'],
                 ],
+                'grammar' => "Past Continuous can set the scene for a story: use 'while' to link two things "
+                    .'happening at the same past moment. Drill: write 1 sentence with '
+                    ."'while' about extreme weather, e.g. 'While the storm was approaching, we were closing "
+                    ."the windows.'",
+                'tense' => TenseKey::PastContinuous,
             ],
             4 => [
                 'title' => 'Describing the Sky and Ground',
@@ -256,6 +296,10 @@ class Month3DaySeeder extends Seeder
                     ['dry', 'सूखा (sookha)'],
                     ['wet', 'गीला (geela)'],
                 ],
+                'grammar' => 'New form: Past Continuous negative = was/were + not + verb-ing. Drill: say 2 '
+                    ."negative sentences about yesterday's sky, e.g. 'It wasn't raining at noon' or 'The sun "
+                    ."wasn't shining in the morning.'",
+                'tense' => TenseKey::PastContinuous,
             ],
             5 => [
                 'title' => 'Weather Forecasts & Small Talk with Neighbours',
@@ -275,6 +319,10 @@ class Month3DaySeeder extends Seeder
                     ['degree (temperature)', 'डिग्री (degree)'],
                     ['pleasant', 'सुहावना (suhaavna)'],
                 ],
+                'grammar' => 'New form: Past Continuous question = Was/Were + subject + verb-ing? Drill: ask '
+                    .'your practice partner 2 questions about last night, e.g. '
+                    ."'Were you watching the forecast at 9 p.m.?'",
+                'tense' => TenseKey::PastContinuous,
             ],
             6 => [
                 'title' => 'Making Small Talk With Someone New',
@@ -294,6 +342,9 @@ class Month3DaySeeder extends Seeder
                     ['Have a good one', 'दिन शुभ रहे (din shubh rahe)'],
                     ['Take it easy', 'आराम से लो (aaraam se lo)'],
                 ],
+                'grammar' => 'Practise all 3 Past Continuous forms together. Drill: ask your practice '
+                    ."partner 'What were you doing when we met?' and answer using was/were + verb-ing.",
+                'tense' => TenseKey::PastContinuous,
             ],
             7 => [
                 'title' => 'Week 1 Review — Small Talk Milestone',
@@ -307,6 +358,10 @@ class Month3DaySeeder extends Seeder
                 'vocab_intro' => 'No new words this week — re-read all 30 Week 1 words and phrases aloud once, '
                     .'at normal speed, and notice which ones are now easy.',
                 'vocab' => [],
+                'grammar' => 'Week 1 Grammar review: mix affirmative, negative, and question forms of Past '
+                    .'Continuous. Drill: describe what you were doing at three different times yesterday, '
+                    .'using at least one negative sentence.',
+                'tense' => TenseKey::PastContinuous,
             ],
             8 => [
                 'title' => 'Talking About Your Phone',
@@ -325,6 +380,10 @@ class Month3DaySeeder extends Seeder
                     ['wifi', 'वाईफ़ाई (wifi)'],
                     ['network', 'नेटवर्क (network)'],
                 ],
+                'grammar' => 'Past Continuous often describes a phone call already in progress. Drill: '
+                    ."complete 'I ___ (talk) on the phone when the call dropped' with was talking, then say "
+                    .'it aloud.',
+                'tense' => TenseKey::PastContinuous,
             ],
             9 => [
                 'title' => 'Everyday Phone Actions',
@@ -343,6 +402,10 @@ class Month3DaySeeder extends Seeder
                     ['message (text)', 'मैसेज (message)'],
                     ['call', 'कॉल (call)'],
                 ],
+                'grammar' => 'Usage rule: put the longer background action in Past Continuous and the '
+                    ."shorter interrupting action in Past Simple, linked by 'when'. Drill: say 'My phone was "
+                    ."charging when the power went out' and make 1 more example.",
+                'tense' => TenseKey::PastContinuous,
             ],
             10 => [
                 'title' => 'Calls & Social Media',
@@ -361,6 +424,10 @@ class Month3DaySeeder extends Seeder
                     ['screenshot', 'स्क्रीनशॉट (screenshot)'],
                     ['social media', 'सोशल मीडिया (social media)'],
                 ],
+                'grammar' => "Usage rule: use 'while' for two actions happening at the same past moment, "
+                    ."both in Past Continuous. Drill: say 'While I was calling you, you were messaging me' "
+                    .'and make 1 more example about calls or social media.',
+                'tense' => TenseKey::PastContinuous,
             ],
             11 => [
                 'title' => 'Phone Settings & Photos',
@@ -378,6 +445,10 @@ class Month3DaySeeder extends Seeder
                     ['settings', 'सेटिंग्स (settings)'],
                     ['update (app)', 'अपडेट करना (update karna)'],
                 ],
+                'grammar' => 'Usage rule: state verbs (know, want, believe, own) never take -ing, even in '
+                    ."the past. Drill: correct this mistake — 'I was knowing his number' should be 'I knew "
+                    ."his number.' Then say 1 more state-verb sentence in Past Simple.",
+                'tense' => TenseKey::PastContinuous,
             ],
             12 => [
                 'title' => 'Managing Your Phone',
@@ -396,6 +467,10 @@ class Month3DaySeeder extends Seeder
                     ['volume', 'आवाज़ (aawaaz)'],
                     ['storage', 'स्टोरेज (storage)'],
                 ],
+                'grammar' => 'Signal words for Past Continuous: while, when, at that moment, all day '
+                    ."yesterday, all morning. Drill: say 1 sentence with 'all evening yesterday', e.g. 'My "
+                    ."phone was downloading updates all evening yesterday.'",
+                'tense' => TenseKey::PastContinuous,
             ],
             13 => [
                 'title' => 'Online & Notifications',
@@ -415,6 +490,11 @@ class Month3DaySeeder extends Seeder
                     ['notification', 'नोटिफ़िकेशन (notification)'],
                     ['online account', 'ऑनलाइन अकाउंट (online account)'],
                 ],
+                'grammar' => "Mistake correction: 'The notification was arrive while I searched online' is "
+                    ."wrong. Correct form: 'The notification arrived while I was searching online' — the "
+                    .'shorter action takes Past Simple, the longer one takes Past Continuous. Drill: fix 1 '
+                    .'more mixed-up sentence of your own.',
+                'tense' => TenseKey::PastContinuous,
             ],
             14 => [
                 'title' => 'Week 2 Review — Answer a Phone Call Milestone',
@@ -427,6 +507,10 @@ class Month3DaySeeder extends Seeder
                 'vocab_intro' => 'No new words today — review all Week 2 words aloud and notice which ones '
                     .'feel easier now.',
                 'vocab' => [],
+                'grammar' => 'Week 2 Grammar review: before your phone-call milestone, practise describing '
+                    ."an interruption — 'I was doing X when the phone rang.' Drill: say 2 such sentences "
+                    .'using your own recent phone experiences.',
+                'tense' => TenseKey::PastContinuous,
             ],
             15 => [
                 'title' => 'Talking About Your Body',
@@ -444,6 +528,10 @@ class Month3DaySeeder extends Seeder
                     ['head', 'सिर (sir)'],
                     ['hand', 'हाथ (haath)'],
                 ],
+                'grammar' => 'New tense: Present Perfect. Structure: subject + have/has + past participle, '
+                    .'connecting a past action to the present. Drill: say 2 sentences about your body or '
+                    ."health right now, e.g. 'I have had a headache since this morning.'",
+                'tense' => TenseKey::PresentPerfect,
             ],
             16 => [
                 'title' => 'Describing Aches and Pains',
@@ -461,6 +549,10 @@ class Month3DaySeeder extends Seeder
                     ['ear', 'कान (kaan)'],
                     ['stomach', 'पेट (pet)'],
                 ],
+                'grammar' => 'Keep practising Present Perfect affirmative sentences with irregular past '
+                    .'participles (hurt, had, felt). Drill: say 2 sentences about a recent ache, e.g. '
+                    ."'She has hurt her leg' or 'I have had a backache all week.'",
+                'tense' => TenseKey::PresentPerfect,
             ],
             17 => [
                 'title' => 'Describing Symptoms',
@@ -478,6 +570,10 @@ class Month3DaySeeder extends Seeder
                     ['cold (illness)', 'ज़ुकाम (zukaam)'],
                     ['pain', 'दर्द (dard)'],
                 ],
+                'grammar' => "Usage rule: use 'since' + a starting point or 'for' + a length of time with "
+                    .'Present Perfect to show something that began in the past and is still true now. '
+                    ."Drill: say 'I have had a cough since yesterday' and 1 more sentence using 'for'.",
+                'tense' => TenseKey::PresentPerfect,
             ],
             18 => [
                 'title' => 'Seeing a Doctor',
@@ -496,6 +592,10 @@ class Month3DaySeeder extends Seeder
                     ['clinic', 'क्लीनिक (clinic)'],
                     ['hospital', 'अस्पताल (aspataal)'],
                 ],
+                'grammar' => 'New form: Present Perfect negative = have/has + not + past participle, often '
+                    ."used with 'yet' for something not done. Drill: say 'I haven't taken my medicine yet' "
+                    .'and 1 more negative sentence about your health.',
+                'tense' => TenseKey::PresentPerfect,
             ],
             19 => [
                 'title' => 'Staying Healthy',
@@ -513,6 +613,10 @@ class Month3DaySeeder extends Seeder
                     ['exercise', 'व्यायाम (vyaayaam)'],
                     ['healthy', 'स्वस्थ (swasth)'],
                 ],
+                'grammar' => 'New form: Present Perfect question = Have/Has + subject + past participle? '
+                    ."Drill: ask your practice partner 'Have you done your exercise today?' and 1 more "
+                    .'question using this pattern.',
+                'tense' => TenseKey::PresentPerfect,
             ],
             20 => [
                 'title' => 'A Health Checkup',
@@ -532,6 +636,10 @@ class Month3DaySeeder extends Seeder
                     ['allergy', 'एलर्जी (allergy)'],
                     ['energy', 'ऊर्जा (oorja)'],
                 ],
+                'grammar' => 'Signal words for Present Perfect: already, yet, just, ever, never, since, for, '
+                    ."so far, recently, lately. Drill: say 3 sentences from today's checkup roleplay, each "
+                    .'using a different signal word.',
+                'tense' => TenseKey::PresentPerfect,
             ],
             21 => [
                 'title' => 'Week 3 Review — Describe a Symptom & Understand Advice Milestone',
@@ -544,6 +652,10 @@ class Month3DaySeeder extends Seeder
                 'write' => 'Write the full doctor conversation, from memory, in 8 or more lines.',
                 'vocab_intro' => 'No new words today — review all Week 3 words aloud.',
                 'vocab' => [],
+                'grammar' => 'Week 3 Grammar review: mix affirmative, negative, and question forms of '
+                    .'Present Perfect before your doctor-roleplay milestone. Drill: describe your symptom '
+                    .'and the doctor’s advice using at least 2 Present Perfect sentences.',
+                'tense' => TenseKey::PresentPerfect,
             ],
             22 => [
                 'title' => 'Making a Plan',
@@ -566,6 +678,10 @@ class Month3DaySeeder extends Seeder
                     ['join', 'शामिल होना (shaamil hona)'],
                     ['celebrate', 'जश्न मनाना (jashn manaana)'],
                 ],
+                'grammar' => 'Usage rule: use Present Perfect for life experiences when the exact time '
+                    ."doesn't matter, often with 'ever' or 'never'. Drill: ask 'Have you ever been to that "
+                    ."place?' and answer 'I have never been there — let's go this weekend!'",
+                'tense' => TenseKey::PresentPerfect,
             ],
             23 => [
                 'title' => 'Invitations & Opinions',
@@ -588,6 +704,10 @@ class Month3DaySeeder extends Seeder
                     ['suggestion', 'सुझाव (sujhaav)'],
                     ['opinion', 'राय (raay)'],
                 ],
+                'grammar' => "Usage rule: use 'just', 'already', or 'yet' with Present Perfect for recently "
+                    ."completed actions. Drill: say 'I have just replied to your invitation' and 1 more "
+                    .'sentence about accepting or declining a plan.',
+                'tense' => TenseKey::PresentPerfect,
             ],
             24 => [
                 'title' => 'Confirming, Postponing & Celebrating Plans',
@@ -611,6 +731,10 @@ class Month3DaySeeder extends Seeder
                     ['surprise', 'सरप्राइज़ (surprise)'],
                     ['catch up', 'बातें करना (baaten karna)'],
                 ],
+                'grammar' => "Key rule: don't use Present Perfect with a specific finished time word like "
+                    ."'yesterday' — use Past Simple instead. Drill: correct the mistake 'I have confirmed it "
+                    ."yesterday' to 'I confirmed it yesterday,' then make 1 more pair of your own.",
+                'tense' => TenseKey::PresentPerfect,
             ],
             25 => [
                 'title' => 'Getting Around Town',
@@ -632,6 +756,10 @@ class Month3DaySeeder extends Seeder
                     ['route', 'रास्ता (raasta)'],
                     ['traffic', 'ट्रैफ़िक (traffic)'],
                 ],
+                'grammar' => "Contrast practice: 'I have traveled by train many times' (experience, no time "
+                    ."given) versus 'I traveled by train last week' (Past Simple, specific time). Drill: say "
+                    .'1 sentence of each type about your own travel.',
+                'tense' => TenseKey::PresentPerfect,
             ],
             26 => [
                 'title' => 'Asking for and Giving Directions',
@@ -654,6 +782,11 @@ class Month3DaySeeder extends Seeder
                     ['straight', 'सीधे (seedhe)'],
                     ['arrive', 'पहुँचना (pahunchna)'],
                 ],
+                'grammar' => "Mistake correction: 'I have went to the market yesterday' is wrong on two "
+                    .'counts — the wrong participle, and a specific time word used with Present Perfect. '
+                    ."Correct form: 'I went to the market yesterday.' Drill: fix 1 more sentence that mixes "
+                    .'Present Perfect with a time word.',
+                'tense' => TenseKey::PresentPerfect,
             ],
             27 => [
                 'title' => 'Commuting & Timing',
@@ -677,6 +810,10 @@ class Month3DaySeeder extends Seeder
                     ['helmet', 'हेलमेट (helmet)'],
                     ['commute', 'आना-जाना (aana-jaana)'],
                 ],
+                'grammar' => "Usage rule: use Present Perfect with 'for' or 'since' to show a duration that "
+                    ."started in the past and is still true now. Drill: say 'I have taken this bus for "
+                    ."three years' and 1 more sentence using 'since'.",
+                'tense' => TenseKey::PresentPerfect,
             ],
             28 => [
                 'title' => 'Full Mock Conversation Rehearsal',
@@ -691,6 +828,10 @@ class Month3DaySeeder extends Seeder
                 'vocab_intro' => 'No new words today — look back through Days 1-27 and pick your personal 10 '
                     .'hardest words to review.',
                 'vocab' => [],
+                'grammar' => "Review drill: as you read today's sample conversation aloud, mark every "
+                    .'Present Perfect verb you find (have/has + past participle) and say why it is used '
+                    .'instead of Past Simple.',
+                'tense' => TenseKey::PresentPerfect,
             ],
             29 => [
                 'title' => 'Record & Review',
@@ -704,6 +845,10 @@ class Month3DaySeeder extends Seeder
                 'vocab_intro' => "No new words today — review all Week 4 words once more before tomorrow's "
                     .'milestone conversation.',
                 'vocab' => [],
+                'grammar' => 'Review drill: describe one change since Month 3 began using Present Perfect, '
+                    ."e.g. 'I have improved my pronunciation' or 'My confidence has grown.' Avoid adding a "
+                    .'specific past date to these sentences.',
+                'tense' => TenseKey::PresentPerfect,
             ],
             30 => [
                 'title' => 'Month 3 Milestone — Real-Life Conversation',
@@ -713,6 +858,7 @@ class Month3DaySeeder extends Seeder
                     'listening' => 0,
                     'speaking' => 40,
                     'writing' => 15,
+                    'grammar' => 0,
                 ],
                 'read' => 'No reading exercise today — this is a performance day.',
                 'listen' => 'No listening exercise today — this is a performance day.',
@@ -725,6 +871,9 @@ class Month3DaySeeder extends Seeder
                 'vocab_intro' => 'Month 3 vocabulary is complete — 425 out of 500 words introduced. No new '
                     .'words today; this is a milestone day.',
                 'vocab' => [],
+                'grammar' => "Closing review: mix Past Continuous ('I was learning...') and Present Perfect "
+                    ."('I have learned...') as you reflect on Month 3 during your milestone conversation.",
+                'tense' => TenseKey::PresentPerfect,
             ],
         ];
     }

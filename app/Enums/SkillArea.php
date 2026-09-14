@@ -9,4 +9,5 @@ enum SkillArea: string
     case Listening = 'listening';
     case Speaking = 'speaking';
     case Writing = 'writing';
+    case Grammar = 'grammar';
 }

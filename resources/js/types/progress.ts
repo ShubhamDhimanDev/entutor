@@ -1,9 +1,12 @@
+import type { TenseRef } from './library';
+
 export type SkillArea =
     | 'reading'
     | 'vocabulary'
     | 'listening'
     | 'speaking'
-    | 'writing';
+    | 'writing'
+    | 'grammar';
 
 export type DaySummary = {
     id: number;
@@ -89,6 +92,7 @@ export type DayTask = {
         term: string;
         native_meaning: string;
     }>;
+    tense: TenseRef | null;
 };
 
 export type MonthlyTestSection = {

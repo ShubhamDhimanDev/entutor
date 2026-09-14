@@ -1,6 +1,7 @@
 import { Link, usePage } from '@inertiajs/react';
 import {
     BookOpenText,
+    History,
     LayoutGrid,
     MessageCircleQuestion,
     MessagesSquare,
@@ -26,6 +27,7 @@ import { index as coachLearners } from '@/routes/coach/learners';
 import { index as confidenceQaIndex } from '@/routes/confidence-qa';
 import { index as mistakesIndex } from '@/routes/mistakes';
 import { index as roleplayIndex } from '@/routes/roleplay';
+import { index as tensesIndex } from '@/routes/tenses';
 import { index as wordBankIndex } from '@/routes/word-bank';
 import type { NavItem } from '@/types';
 
@@ -52,6 +54,11 @@ const libraryNavItems: NavItem[] = [
         title: 'Word Bank',
         href: wordBankIndex(),
         icon: BookOpenText,
+    },
+    {
+        title: 'Tenses',
+        href: tensesIndex(),
+        icon: History,
     },
     {
         title: 'Fix Common Mistakes',

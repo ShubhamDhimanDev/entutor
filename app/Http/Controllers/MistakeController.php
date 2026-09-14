@@ -14,7 +14,7 @@ class MistakeController extends Controller
     /**
      * Number of common mistakes shown per page.
      */
-    private const int PER_PAGE = 10;
+    private const PER_PAGE = 10;
 
     /**
      * Browse the global "Fix Common Mistakes" library: paginated, filterable

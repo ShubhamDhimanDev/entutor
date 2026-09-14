@@ -15,12 +15,14 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        // Content seeders, in dependency order: curriculum (months/weeks/days/day
-        // tasks) before anything that references it, word bank before day-task
+        // Content seeders, in dependency order: curriculum months before tenses
+        // and day tasks that reference them, tenses before the day seeders so
+        // Grammar day tasks can resolve tense_id, word bank before day-task
         // vocabulary linkage. These are stubs until the english-tutor agent
         // authors real content.
         $this->call([
             MonthSeeder::class,
+            TenseSeeder::class,
             Month1DaySeeder::class,
             Month2DaySeeder::class,
             Month3DaySeeder::class,
