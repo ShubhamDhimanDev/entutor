@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\CoachLinkStatus;
 use Database\Factories\CoachLinkFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Hidden;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -36,6 +37,7 @@ use Illuminate\Support\Carbon;
     'revoked_at',
     'revoked_by_user_id',
 ])]
+#[Hidden(['active_learner_user_id'])]
 class CoachLink extends Model
 {
     /** @use HasFactory<CoachLinkFactory> */
