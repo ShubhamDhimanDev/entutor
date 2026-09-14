@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Settings\CoachSettingsController;
 use App\Http\Controllers\Settings\ProfileController;
 use App\Http\Controllers\Settings\SecurityController;
 use Illuminate\Auth\Middleware\RequirePassword;
@@ -24,11 +25,7 @@ Route::middleware(['auth', 'verified'])->group(function () {
         ->name('user-password.update');
 
     Route::inertia('settings/appearance', 'settings/appearance')->name('appearance.edit');
-});
 
-Route::get('.well-known/passkey-endpoints', function () {
-    return response()->json([
-        'enroll' => route('security.edit'),
-        'manage' => route('security.edit'),
-    ]);
-})->name('well-known.passkeys');
+    Route::get('settings/coach', [CoachSettingsController::class, 'edit'])->name('coach.edit');
+    Route::post('settings/coach/invite-code', [CoachSettingsController::class, 'store'])->name('coach.invite-code.store');
+});

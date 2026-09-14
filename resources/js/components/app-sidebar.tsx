@@ -1,7 +1,14 @@
-import { Link } from '@inertiajs/react';
-import { BookOpen, FolderGit2, LayoutGrid } from 'lucide-react';
+import { Link, usePage } from '@inertiajs/react';
+import {
+    BookOpenText,
+    LayoutGrid,
+    MessageCircleQuestion,
+    MessagesSquare,
+    Sparkles,
+    SpellCheck2,
+    Users,
+} from 'lucide-react';
 import AppLogo from '@/components/app-logo';
-import { NavFooter } from '@/components/nav-footer';
 import { NavMain } from '@/components/nav-main';
 import { NavUser } from '@/components/nav-user';
 import {
@@ -14,9 +21,15 @@ import {
     SidebarMenuItem,
 } from '@/components/ui/sidebar';
 import { dashboard } from '@/routes';
+import { index as aiPromptsIndex } from '@/routes/ai-prompts';
+import { index as coachLearners } from '@/routes/coach/learners';
+import { index as confidenceQaIndex } from '@/routes/confidence-qa';
+import { index as mistakesIndex } from '@/routes/mistakes';
+import { index as roleplayIndex } from '@/routes/roleplay';
+import { index as wordBankIndex } from '@/routes/word-bank';
 import type { NavItem } from '@/types';
 
-const mainNavItems: NavItem[] = [
+const learnerNavItems: NavItem[] = [
     {
         title: 'Dashboard',
         href: dashboard(),
@@ -24,27 +37,57 @@ const mainNavItems: NavItem[] = [
     },
 ];
 
-const footerNavItems: NavItem[] = [
+const coachNavItems: NavItem[] = [
     {
-        title: 'Repository',
-        href: 'https://github.com/laravel/react-starter-kit',
-        icon: FolderGit2,
+        title: 'My learners',
+        href: coachLearners(),
+        icon: Users,
+    },
+];
+
+// Content-library browsing pages — global reference content, identical for
+// every user regardless of role, so this list is shared by both nav sets.
+const libraryNavItems: NavItem[] = [
+    {
+        title: 'Word Bank',
+        href: wordBankIndex(),
+        icon: BookOpenText,
     },
     {
-        title: 'Documentation',
-        href: 'https://laravel.com/docs/starter-kits#react',
-        icon: BookOpen,
+        title: 'Fix Common Mistakes',
+        href: mistakesIndex(),
+        icon: SpellCheck2,
+    },
+    {
+        title: 'Roleplay Scenarios',
+        href: roleplayIndex(),
+        icon: MessagesSquare,
+    },
+    {
+        title: 'AI Practice Prompts',
+        href: aiPromptsIndex(),
+        icon: Sparkles,
+    },
+    {
+        title: 'Confidence Q&A',
+        href: confidenceQaIndex(),
+        icon: MessageCircleQuestion,
     },
 ];
 
 export function AppSidebar() {
+    const { auth } = usePage().props;
+    const mainNavItems =
+        auth.user.role === 'coach' ? coachNavItems : learnerNavItems;
+    const homeHref = auth.user.role === 'coach' ? coachLearners() : dashboard();
+
     return (
         <Sidebar collapsible="icon" variant="inset">
             <SidebarHeader>
                 <SidebarMenu>
                     <SidebarMenuItem>
                         <SidebarMenuButton size="lg" asChild>
-                            <Link href={dashboard()} prefetch>
+                            <Link href={homeHref} prefetch>
                                 <AppLogo />
                             </Link>
                         </SidebarMenuButton>
@@ -54,10 +97,10 @@ export function AppSidebar() {
 
             <SidebarContent>
                 <NavMain items={mainNavItems} />
+                <NavMain items={libraryNavItems} label="Library" />
             </SidebarContent>
 
             <SidebarFooter>
-                <NavFooter items={footerNavItems} className="mt-auto" />
                 <NavUser />
             </SidebarFooter>
         </Sidebar>

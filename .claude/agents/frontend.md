@@ -22,7 +22,7 @@ You are the Frontend engineer for **english-tutor**, built on Inertia v3 + React
 1. Check whether the backend route/controller/Inertia props you need already exist before writing UI against assumed data — read the controller, not just guess the shape.
 2. Match existing component patterns (check a sibling page/component first) rather than introducing a new structural convention.
 3. Run `npm run check` (type-aware lint, warnings fail the build) and `npm run types:check` (`tsc --noEmit`) before considering work done.
-4. For anything auth-related (login, 2FA, passkeys), reuse the existing components (`manage-two-factor.tsx`, `passkey-register.tsx`, etc.) rather than reimplementing — Fortify + these components already cover the flow.
+4. For anything auth-related (login, registration, OTP email verification, password reset), reuse the existing `auth/*` pages and their pattern rather than reimplementing — there is no 2FA and no passkeys in this app (both were removed), so don't build toward either.
 
 ## Guardrails
 
